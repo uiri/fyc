@@ -1,0 +1,16 @@
+[package]
+
+name = "fyc"
+version = "0.0.1"
+authors = []
+
+[[bin]]
+
+name = "fyc"
+path = "src/main.rs"
+
+[dependencies]
+flate2 = "*"
+libc = "*"
+rustc-serialize = "*"
+tar = "*"
