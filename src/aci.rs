@@ -9,33 +9,33 @@ use std::process::Command;
 static ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 static METADATA_URL: &'static str = "http://localhost/";
 
-#[derive(RustcDecodable)]
-struct NameValue {
+#[derive(Clone, RustcDecodable, RustcEncodable)]
+pub struct NameValue {
     name: String,
     value: String
 }
 
-#[derive(RustcDecodable)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
 struct EventHandler {
     exec: Vec<String>,
     name: String
 }
 
-#[derive(RustcDecodable)]
-struct Isolator {
+#[derive(Clone, RustcDecodable, RustcEncodable)]
+pub struct Isolator {
 }
 
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
+#[allow(non_snake_case)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
 struct MountPoint {
     name: String,
     path: String,
     readOnly: Option<bool>
 }
 
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
-struct Port {
+#[allow(non_snake_case)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
+pub struct Port {
     name: String,
     protocol: String,
     port: u16,
@@ -43,8 +43,8 @@ struct Port {
     socketActivated: Option<bool>
 }
 
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
+#[allow(non_snake_case)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
 struct App {
     exec: Option<Vec<String>>,
     user: String,
@@ -58,8 +58,8 @@ struct App {
     ports: Option<Vec<Port>>
 }
 
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
+#[allow(non_snake_case)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
 struct Dependency {
     imageName: String,
     imageID: Option<String>,
@@ -67,8 +67,8 @@ struct Dependency {
     size: Option<usize>
 }
 
-#[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
+#[allow(non_snake_case)]
+#[derive(Clone, RustcDecodable, RustcEncodable)]
 pub struct ACI {
     acKind: String,
     acVersion: String,

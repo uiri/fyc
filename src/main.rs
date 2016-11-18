@@ -19,6 +19,8 @@ use rustc_serialize::json;
 use tar::Archive;
 
 mod aci;
+mod metadata;
+mod pod;
 
 fn main() {
     let args : Vec<String> = env::args().collect();
@@ -57,6 +59,7 @@ fn main() {
         },
         _ => {}
     }
+
     let manifest : aci::ACI = match json::decode(&manifest_str) {
         Err(e) => {
             println!("Error decoding manifest json: {}", e);
@@ -66,4 +69,6 @@ fn main() {
     };
 
     manifest.exec(acidir.join("rootfs/").to_str().unwrap());
+    let mut metadata_store = metadata::Metadata::new();
+    metadata_store.register_pod("{}");
 }
