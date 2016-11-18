@@ -119,5 +119,5 @@ fn main() {
     }
 
     let mut metadata_store = metadata::Metadata::new();
-    metadata_store.register_pod("{}");
+    metadata_store.register_pod("{\"uuid\": \"\"}");
 }
