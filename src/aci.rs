@@ -2,8 +2,8 @@ use libc::chroot;
 
 use std::env::set_current_dir;
 use std::ffi::CString;
+use std::io;
 use std::os::unix::process::CommandExt;
-use std::process;
 use std::process::Command;
 
 static ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
@@ -81,7 +81,7 @@ pub struct ACI {
 }
 
 impl App {
-    fn spawn(&self, exec: &Vec<String>, app_name: &str) -> process::ExitStatus {
+    fn prep_cmd(&self, exec: &Vec<String>, dir: &str, app_name: &str) -> Command {
         let mut cmd = Command::new(&exec[0]);
         cmd.args(&exec[1..]);
         match self.user.parse::<u32>() {
@@ -103,75 +103,83 @@ impl App {
                 }
             }
         }
-        let mut child = cmd.spawn().unwrap();
-        child.wait().unwrap()
-    }
-
-    fn exec_app(&self, dir: &str, app_name: &str) {
-        match set_current_dir(dir) {
-            Err(e) => {
-                println!("chdir failed: {}", e);
-                return;
-            }
-            _ => {}
-        }
-        let c_dir = CString::new(dir).unwrap();
-        unsafe {
-            if chroot(c_dir.as_ptr()) != 0 {
-                println!("Chroot unsuccessful!");
-                return;
-            }
-        }
-        match self.workingDirectory {
-            None => {},
-            Some(ref wdir) => {
-                match set_current_dir(wdir) {
-                    Err(e) => {
-                        println!("Error performing chdir into specified working directory: {}", e);
-                    },
-                    _ => {}
-                }
-            }
-        }
-
-        match self.eventHandlers {
-            None => {},
-            Some(ref ehs) => {
-                for eh in ehs {
-                    if eh.name == "pre-start" {
-                        self.spawn(&eh.exec, app_name);
-                    }
-                }
-            }
-        }
-
-        let exit_success = match self.exec {
-            None => true,
-            Some(ref exec) => self.spawn(exec, app_name).success()
+        let closed_dir = String::from(dir);
+        let work_dir = match self.workingDirectory {
+            None => None,
+            Some(ref wdir) => Some(wdir.clone())
         };
 
-        if exit_success {
-            return;
-        }
-        
-        match self.eventHandlers {
-            None => {},
-            Some(ref ehs) => {
-                for eh in ehs {
-                    if eh.name == "post-stop" {
-                        self.spawn(&eh.exec, app_name);
+        cmd.before_exec(move || {
+            match set_current_dir(&closed_dir) {
+                Err(e) => {
+                    println!("chdir failed: {}", e);
+                    return Err(e);
+                }
+                _ => {}
+            }
+
+            let c_dir = CString::new(closed_dir.clone()).unwrap();
+            unsafe {
+                let e = chroot(c_dir.as_ptr());
+                if e != 0 {
+                    println!("Chroot unsuccessful!");
+                    return Err(io::Error::last_os_error());
+                }
+            }
+
+            match work_dir {
+                None => {},
+                Some(ref wdir) => {
+                    match set_current_dir(wdir) {
+                        Err(e) => {
+                            println!("chdir failed: {}", e);
+                            return Err(e);
+                        }
+                        _ => {}
                     }
                 }
             }
+
+            Ok(())
+        });
+        cmd
+    }
+
+    fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str, app_name: &str, event_name: &str) -> Option<Command> {
+        for eh in ehs {
+            if eh.name == event_name {
+                return Some(self.prep_cmd(&eh.exec, dir, app_name));
+            }
         }
+        return None;
+    }
+
+    fn exec_app(&self, dir: &str, app_name: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
+        let app_child = match self.exec {
+            None => { return (None, None, None); }
+            Some(ref exec) => self.prep_cmd(exec, dir, app_name)
+        };
+
+        let pre_start = match self.eventHandlers {
+            None => None,
+            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "pre-start")
+        };
+
+
+        let post_stop = match self.eventHandlers {
+            None => None,
+            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "post-stop")
+        };
+
+        (Some(app_child), pre_start, post_stop)
     }
 }
 
 impl ACI {
-    pub fn exec(&self, dir: &str) {
+    pub fn exec(&self, dir: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
         let app_name = self.name.split('/').last().unwrap();
         match self.app {
-            None => {},
+            None => (None, None, None),
             Some(ref a) => a.exec_app(dir, app_name)
         }
     }
