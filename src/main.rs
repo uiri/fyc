@@ -10,6 +10,7 @@ use flate2::read::GzDecoder;
 
 use rustc_serialize::json;
 
+use std::collections::HashSet;
 use std::env;
 use std::fs::{create_dir, File};
 use std::io::Read;
@@ -24,9 +25,9 @@ mod aci;
 mod metadata;
 mod pod;
 
-fn run_aci(arg: String) -> Option<JoinHandle<()>> {
+fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>> {
     let acipath = Path::new(&arg);
-    let mut acidirstr = String::from("/opt/fyc/");
+    let mut acidirstr = String::from("/opt/fyc/apps/");
     acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
     acidirstr.push('/');
     let acidir = Path::new(&acidirstr);
@@ -66,8 +67,9 @@ fn run_aci(arg: String) -> Option<JoinHandle<()>> {
     };
 
     let mut threadacidirstr = acidirstr.clone();
+    threadacidirstr.push_str("rootfs/");
+    manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
     Some(thread::spawn(move || {
-        threadacidirstr.push_str("rootfs/");
         match manifest.exec(&threadacidirstr){
             (Some(mut app_child), pre_start, post_stop) => {
                 match pre_start {
@@ -104,8 +106,10 @@ fn main() {
     // first argument is the name of the binary
     args.next();
 
+    let mut volumes : HashSet<String> = HashSet::new();
+
     for arg in args {
-        match run_aci(arg) {
+        match run_aci(arg, &mut volumes) {
             None => {},
             Some(h) => { handles.push(h); }
         }

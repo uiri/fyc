@@ -1,10 +1,15 @@
-use libc::chroot;
+use libc::{chroot, mount, MS_BIND, MS_RDONLY};
+use libc;
 
+use std::collections::HashSet;
 use std::env::set_current_dir;
 use std::ffi::CString;
+use std::fs::create_dir;
 use std::io;
 use std::os::unix::process::CommandExt;
+use std::path::Path;
 use std::process::Command;
+use std::ptr;
 
 static ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 static METADATA_URL: &'static str = "http://localhost/";
@@ -145,6 +150,57 @@ impl App {
         cmd
     }
 
+    fn mount_points_or_empty(&self) -> Vec<MountPoint> {
+        match self.mountPoints {
+            Some(ref v) => (*v).clone(),
+            None => Vec::new()
+        }
+    }
+
+    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) {
+        for mount_point in self.mount_points_or_empty() {
+            let mut mount_src_str = String::from(vol_path);
+            mount_src_str.push_str(&mount_point.name);
+
+            if !volumes.contains(&mount_point.name) {
+                match create_dir(Path::new(&mount_src_str)) {
+                    Err(_) => {
+                        println!("Error creating directory for volume! Oh no!");
+                        return;
+                    }
+                    _ => {}
+                }
+                volumes.insert(mount_point.name.clone());
+            }
+
+            let mount_src = CString::new(mount_src_str).unwrap();
+
+            let mut mount_dst_str = String::from(app_path);
+            mount_dst_str.push_str(&mount_point.path);
+            match create_dir(Path::new(&mount_dst_str)) {
+                Err(_) => {
+                    println!("Error creating directory for volume! Oh no!");
+                    return;
+                }
+                _ => {}
+            }
+            let mount_dst = CString::new(mount_dst_str).unwrap();
+
+            let mount_flags = if mount_point.read_only() {
+                MS_BIND & MS_RDONLY
+            } else {
+                MS_BIND
+            };
+
+            unsafe {
+                let e = mount(mount_src.as_ptr(), mount_dst.as_ptr(), ptr::null(), mount_flags, ptr::null());
+                if e != 0 {
+                    println!("Oh no, could not mount a volume: {:?}", *libc::__errno_location());
+                }
+            }
+        }
+    }
+
     fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str, app_name: &str, event_name: &str) -> Option<Command> {
         for eh in ehs {
             if eh.name == event_name {
@@ -176,11 +232,27 @@ impl App {
 }
 
 impl ACI {
+    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) {
+        match self.app {
+            None => {},
+            Some(ref a) => a.mount_volumes(vol_path, app_path, volumes)
+        }
+    }
+
     pub fn exec(&self, dir: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
         let app_name = self.name.split('/').last().unwrap();
         match self.app {
             None => (None, None, None),
             Some(ref a) => a.exec_app(dir, app_name)
+        }
+    }
+}
+
+impl MountPoint {
+    pub fn read_only(&self) -> bool {
+        match self.readOnly {
+            None => false,
+            Some(b) => b
         }
     }
 }
