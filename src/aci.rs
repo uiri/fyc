@@ -1,4 +1,4 @@
-use libc::{chroot, mount, MS_BIND, MS_RDONLY};
+use libc::{chroot, mount, umount, MS_BIND, MS_RDONLY};
 use libc;
 
 use metadata;
@@ -87,6 +87,17 @@ pub struct ACI {
     annotations: Option<Vec<NameValue>>
 }
 
+pub fn unmount_volumes(mount_points: Vec<CString>) {
+    for mount_point in mount_points {
+        unsafe {
+            let e = umount(mount_point.as_ptr());
+            if e != 0 {
+                println!("Oh no, could not unmount: {:?}", *libc::__errno_location());
+            }
+        }
+    }
+}
+
 impl App {
     fn prep_cmd(&self, exec: &Vec<String>, dir: &str,
                 app_name: &str) -> Command {
@@ -168,7 +179,8 @@ impl App {
         }
     }
 
-    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) {
+    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
+        let mut mount_points: Vec<CString> = Vec::new();
         for mount_point in self.mount_points_or_empty() {
             let mut mount_src_str = String::from(vol_path);
             mount_src_str.push_str(&mount_point.name);
@@ -177,7 +189,7 @@ impl App {
                 match create_dir(Path::new(&mount_src_str)) {
                     Err(_) => {
                         println!("Error creating directory for volume! Oh no!");
-                        return;
+                        return mount_points;
                     }
                     _ => {}
                 }
@@ -191,7 +203,7 @@ impl App {
             match create_dir(Path::new(&mount_dst_str)) {
                 Err(_) => {
                     println!("Error creating directory for volume! Oh no!");
-                    return;
+                    return mount_points;
                 }
                 _ => {}
             }
@@ -209,7 +221,9 @@ impl App {
                     println!("Oh no, could not mount a volume: {:?}", *libc::__errno_location());
                 }
             }
+            mount_points.push(mount_dst);
         }
+        mount_points
     }
 
     fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str, app_name: &str, event_name: &str) -> Option<Command> {
@@ -232,7 +246,6 @@ impl App {
             Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "pre-start")
         };
 
-
         let post_stop = match self.eventHandlers {
             None => None,
             Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "post-stop")
@@ -243,9 +256,9 @@ impl App {
 }
 
 impl ACI {
-    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) {
+    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
         match self.app {
-            None => {},
+            None => Vec::new(),
             Some(ref a) => a.mount_volumes(vol_path, app_path, volumes)
         }
     }

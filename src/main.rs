@@ -77,7 +77,7 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>>
 
     let mut threadacidirstr = acidirstr.clone();
     threadacidirstr.push_str("rootfs/");
-    manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
+    let mount_points = manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
     Some(thread::spawn(move || {
         match manifest.exec(&threadacidirstr){
             (Some(mut app_child), pre_start, post_stop) => {
@@ -98,13 +98,14 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>>
                     None => {},
                     Some(mut post_stop_cmd) => {
                         if !exit.success() {
-                            post_stop_cmd.spawn().unwrap();
+                            post_stop_cmd.spawn().unwrap().wait().unwrap();
                         }
                     }
                 }
             }
             (None, _, _) => {}
         }
+        aci::unmount_volumes(mount_points);
     }))
 }
 
