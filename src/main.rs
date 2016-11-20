@@ -3,6 +3,8 @@
 
 extern crate flate2;
 extern crate hyper;
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate rustc_serialize;
 extern crate tar;
@@ -15,8 +17,8 @@ use std::collections::HashSet;
 use std::env;
 use std::fs::{create_dir, File};
 use std::io::Read;
-use std::process::exit;
 use std::path::Path;
+use std::sync::RwLock;
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -25,6 +27,12 @@ use tar::Archive;
 mod aci;
 mod metadata;
 mod pod;
+
+lazy_static! {
+    static ref METADATA_STORE : RwLock<metadata::Metadata> = {
+        RwLock::new(metadata::Metadata::new())
+    };
+}
 
 fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>> {
     let acipath = Path::new(&arg);
@@ -109,6 +117,8 @@ fn main() {
 
     let mut volumes : HashSet<String> = HashSet::new();
 
+    let close_service = metadata::start(&*METADATA_STORE);
+
     for arg in args {
         match run_aci(arg, &mut volumes) {
             None => {},
@@ -123,6 +133,6 @@ fn main() {
         }
     }
 
-    let mut metadata_store = metadata::Metadata::new();
-    metadata_store.register_pod("{\"uuid\": \"\"}");
+    METADATA_STORE.write().unwrap().register_pod("{\"uuid\": \"\"}");
+    close_service.send(true).unwrap();
 }

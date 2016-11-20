@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 flate2 = "*"
 hyper = "*"
+lazy_static = "*"
 libc = "*"
 rustc-serialize = "*"
 tar = "*"

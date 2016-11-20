@@ -5,11 +5,17 @@ use hyper::uri::RequestUri;
 
 use rustc_serialize::json;
 use rustc_serialize::json::Json;
+
 use std::collections::HashMap;
 use std::io::Read;
+use std::sync::RwLock;
+use std::sync::mpsc::{channel, Sender};
+use std::thread;
 
 use aci::{ACI, NameValue};
 use pod::Pod;
+
+pub const HOST_PORT: &'static str = "127.0.0.1:2377";
 
 #[derive(RustcEncodable)]
 struct AppMetadata {
@@ -31,11 +37,28 @@ pub struct Metadata {
     pod_map: HashMap<[u8; 16], PodMetadata>
 }
 
+pub fn start(md: &'static RwLock<Metadata>) -> Sender<bool> {
+    let (s, r) = channel();
+    thread::spawn(move || {
+        let server = Server::http(HOST_PORT).unwrap();
+        let mut listener = server.handle(move |req: Request, res: Response| {
+            md.read().unwrap().handle(req, res);
+        }).unwrap();
+        r.recv().unwrap();
+        listener.close().unwrap();
+    });
+    s
+}
+
 impl Metadata {
     pub fn new() -> Metadata {
         Metadata {
             pod_map: HashMap::new()
         }
+    }
+
+    fn handle(&self, req: Request, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
     }
 
     pub fn register_pod(&mut self, manifest: &str) {

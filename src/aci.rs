@@ -1,6 +1,8 @@
 use libc::{chroot, mount, MS_BIND, MS_RDONLY};
 use libc;
 
+use metadata;
+
 use std::collections::HashSet;
 use std::env::set_current_dir;
 use std::ffi::CString;
@@ -11,8 +13,8 @@ use std::path::Path;
 use std::process::Command;
 use std::ptr;
 
-static ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-static METADATA_URL: &'static str = "http://localhost/";
+const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+const FYC: &'static str = "fyc";
 
 #[derive(Clone, RustcDecodable, RustcEncodable)]
 pub struct NameValue {
@@ -86,7 +88,8 @@ pub struct ACI {
 }
 
 impl App {
-    fn prep_cmd(&self, exec: &Vec<String>, dir: &str, app_name: &str) -> Command {
+    fn prep_cmd(&self, exec: &Vec<String>, dir: &str,
+                app_name: &str) -> Command {
         let mut cmd = Command::new(&exec[0]);
         cmd.args(&exec[1..]);
         match self.user.parse::<u32>() {
@@ -97,9 +100,17 @@ impl App {
             Err(_) => {}, // find actual group
             Ok(groupid) => { cmd.gid(groupid); }
         }
+
+        let pod_uuid = "";
+        let mut metadata_url = String::from("http://");
+        metadata_url.push_str(metadata::HOST_PORT);
+        metadata_url.push('/');
+        metadata_url.push_str(pod_uuid);
+
         cmd.env("PATH", ACE_PATH);
         cmd.env("AC_APP_NAME", app_name);
-        cmd.env("AC_METADATA_URL", METADATA_URL);
+        cmd.env("AC_METADATA_URL", metadata_url);
+        cmd.env("container", FYC);
         match self.environment {
             None => {},
             Some(ref env_vars) => {

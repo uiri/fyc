@@ -4,6 +4,7 @@ version = "0.0.1"
 dependencies = [
  "flate2 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "tar 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
