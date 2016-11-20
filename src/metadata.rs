@@ -1,8 +1,15 @@
-use aci::{ACI, NameValue};
-use pod::Pod;
+use hyper::method::Method;
+use hyper::server::{Response, Request, Server};
+use hyper::status::StatusCode;
+use hyper::uri::RequestUri;
+
 use rustc_serialize::json;
 use rustc_serialize::json::Json;
 use std::collections::HashMap;
+use std::io::Read;
+
+use aci::{ACI, NameValue};
+use pod::Pod;
 
 #[derive(RustcEncodable)]
 struct AppMetadata {
@@ -98,5 +105,58 @@ impl PodMetadata {
             manifest: manifest_json,
             uuid: pod.get_uuid()
         })
+    }
+
+    fn sign(&self, mut req: Request, mut res: Response) {
+        let ref mut req_body = Vec::new();
+        match req.read_to_end(req_body) {
+            Err(_) => {
+                *res.status_mut() = StatusCode::InternalServerError;
+                return;
+            }
+            _ => {}
+        }
+        *res.status_mut() = StatusCode::Ok;
+        res.send(&req_body[..]).unwrap();
+    }
+
+    fn verify(&self, mut req: Request, mut res: Response) {
+        let ref mut req_body = Vec::new();
+        match req.read_to_end(req_body) {
+            Err(_) => {
+                *res.status_mut() = StatusCode::InternalServerError;
+                return;
+            }
+            _ => {}
+        }
+        *res.status_mut() = StatusCode::Ok;
+        res.send(&req_body[..]).unwrap();
+    }
+
+    fn serve_annotations(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
+    }
+
+    fn serve_manifest(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
+    }
+
+    fn serve_uuid(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
+    }
+
+}
+
+impl AppMetadata {
+    fn serve_annotations(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
+    }
+
+    fn serve_manifest(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
+    }
+
+    fn serve_id(&self, mut res: Response) {
+        *res.status_mut() = StatusCode::Ok;
     }
 }

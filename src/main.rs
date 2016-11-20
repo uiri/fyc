@@ -2,6 +2,7 @@
 #![feature(process_exec)]
 
 extern crate flate2;
+extern crate hyper;
 extern crate libc;
 extern crate rustc_serialize;
 extern crate tar;
