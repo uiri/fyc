@@ -58,7 +58,114 @@ impl Metadata {
     }
 
     fn handle(&self, req: Request, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        let path_str = match req.uri {
+            RequestUri::AbsolutePath(ref p) => p.clone(),
+            RequestUri::AbsoluteUri(ref u) => String::from(u.path()),
+            _ => {
+                *res.status_mut() = StatusCode::BadRequest;
+                return;
+            }
+        };
+
+        let mut req_path_segs = if path_str.starts_with('/') {
+            path_str[1..].split('/')
+        } else {
+            *res.status_mut() = StatusCode::BadRequest;
+            return;
+        };
+
+        let pmd = match self.get_by_token(req_path_segs.next()) {
+            Some(p) => p,
+            None => {
+                *res.status_mut() = StatusCode::NotFound;
+                return;
+            }
+        };
+
+        if req_path_segs.next() != Some("acMetadata") {
+            *res.status_mut() = StatusCode::NotFound;
+            return;
+        }
+
+        if req_path_segs.next() != Some("v1") {
+            *res.status_mut() = StatusCode::NotFound;
+            return;
+        }
+
+        match req.method {
+            Method::Post => {
+                if req_path_segs.next() != Some("pod") {
+                    *res.status_mut() = StatusCode::NotFound;
+                    return;
+                }
+                if req_path_segs.next() != Some("hmac") {
+                    *res.status_mut() = StatusCode::NotFound;
+                    return;
+                }
+                match req_path_segs.next() {
+                    Some("sign") => pmd.sign(req, res),
+                    Some("verify") => pmd.verify(req, res),
+                    _ => {
+                        *res.status_mut() = StatusCode::NotFound;
+                        return;
+                    }
+                }
+            },
+            Method::Get => {
+                match req_path_segs.next() {
+                    Some("pod") => {
+                        match req_path_segs.next() {
+                            Some("annotations") =>
+                                pmd.serve_annotations(res),
+                            Some("manifest") =>
+                                pmd.serve_manifest(res),
+                            Some("uuid") =>
+                                pmd.serve_uuid(res),
+                            _ => {
+                                *res.status_mut() = StatusCode::NotFound;
+                                return;
+                            }
+                        }
+                    }
+                    Some("apps") => {
+                        let appmd = match pmd.get_app(req_path_segs.next()) {
+                            Some(a) => a,
+                            None => {
+                                *res.status_mut() = StatusCode::NotFound;
+                                return;
+                            }
+                        };
+
+                        match req_path_segs.next() {
+                            Some("annotations") =>
+                                appmd.serve_annotations(res),
+                            Some("image") => {
+                                match req_path_segs.next() {
+                                    Some("manifest") =>
+                                        appmd.serve_manifest(res),
+                                    Some("id") =>
+                                        appmd.serve_id(res),
+                                    _ => {
+                                        *res.status_mut() =
+                                            StatusCode::NotFound;
+                                        return;
+                                    }
+                                }
+                            }
+                            _ => {
+                                *res.status_mut() = StatusCode::NotFound;
+                                return;
+                            }
+                        }
+                    }
+                    _ => {
+                        *res.status_mut() = StatusCode::NotFound;
+                        return;
+                    }
+                }
+            },
+            _ => *res.status_mut() = StatusCode::MethodNotAllowed
+        }
     }
 
     pub fn register_pod(&mut self, manifest: &str) {
@@ -69,8 +176,15 @@ impl Metadata {
         self.pod_map.insert(pod_metadata.uuid, pod_metadata);
     }
 
+    fn get_by_token(&self, token: Option<&str>) -> Option<&PodMetadata> {
+        match token {
+            None => None,
+            Some(tok) => self.pod_map.get(tok.as_bytes())
+        }
+    }
+
     #[allow(dead_code)]
-    pub fn get_pod(&self, uuid: [u8; 16]) -> String {
+    fn get_pod(&self, uuid: [u8; 16]) -> String {
         match self.pod_map.get(&uuid) {
             None => String::new(),
             Some(pmd) =>
@@ -82,7 +196,7 @@ impl Metadata {
     }
 
     #[allow(dead_code)]
-    pub fn get_app(&self, uuid: [u8; 16], app_name: String) -> String {
+    fn get_app(&self, uuid: [u8; 16], app_name: String) -> String {
         match self.pod_map.get(&uuid) {
             None => String::new(),
             Some(pmd) =>
@@ -99,7 +213,7 @@ impl Metadata {
 }
 
 impl PodMetadata {
-    pub fn new(manifest: String) -> Option<PodMetadata> {
+    fn new(manifest: String) -> Option<PodMetadata> {
         let pod : Pod = match json::decode(&manifest) {
             Err(e) => {
                 println!("Error decoding manifest json: {}", e);
@@ -128,6 +242,13 @@ impl PodMetadata {
             manifest: manifest_json,
             uuid: pod.get_uuid()
         })
+    }
+
+    fn get_app(&self, app: Option<&str>) -> Option<&AppMetadata> {
+        match app {
+            None => None,
+            Some(app_name) => self.apps.get(&String::from(app_name))
+        }
     }
 
     fn sign(&self, mut req: Request, mut res: Response) {
