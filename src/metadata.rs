@@ -1,4 +1,6 @@
+use hyper::header::ContentType;
 use hyper::method::Method;
+use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use hyper::server::{Response, Request, Server};
 use hyper::status::StatusCode;
 use hyper::uri::RequestUri;
@@ -16,6 +18,13 @@ use aci::{ACI, NameValue};
 use pod::Pod;
 
 pub const HOST_PORT: &'static str = "127.0.0.1:2377";
+lazy_static! {
+    static ref APP_JSON: ContentType = ContentType(Mime(
+        TopLevel::Application, SubLevel::Json, vec![]));
+    static ref TEXT_PLAIN: ContentType = ContentType(Mime(
+        TopLevel::Text, SubLevel::Plain, vec![(
+            Attr::Charset, Value::Ext(String::from("us-ascii")))]));
+}
 
 #[derive(RustcEncodable)]
 struct AppMetadata {
@@ -261,6 +270,7 @@ impl PodMetadata {
             _ => {}
         }
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
     }
 
@@ -274,19 +284,23 @@ impl PodMetadata {
             _ => {}
         }
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
     }
 
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*APP_JSON).clone());
     }
 
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*APP_JSON).clone());
     }
 
     fn serve_uuid(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*TEXT_PLAIN).clone());
     }
 
 }
@@ -294,13 +308,16 @@ impl PodMetadata {
 impl AppMetadata {
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*APP_JSON).clone());
     }
 
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*APP_JSON).clone());
     }
 
     fn serve_id(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
+        res.headers_mut().set((*TEXT_PLAIN).clone());
     }
 }
