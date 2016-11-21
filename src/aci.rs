@@ -1,4 +1,4 @@
-use libc::{chroot, mount, umount, MS_BIND, MS_RDONLY};
+use libc::{chroot, mount, umount, MS_BIND, MS_RDONLY, MS_NODEV, MS_NOEXEC, MS_NOSUID};
 use libc;
 
 use metadata;
@@ -98,6 +98,42 @@ pub fn unmount_volumes(mount_points: Vec<CString>) {
     }
 }
 
+fn mount_system_volumes(app_path: &str, mount_points: &mut Vec<CString>) {
+    let system_volumes = vec!["proc", "sys", "dev"];
+
+    for system_volume in system_volumes {
+        let mut mount_dir = String::from(app_path);
+        mount_dir.push_str(system_volume);
+        mount_dir.push('/');
+
+        let mount_dst = CString::new(mount_dir.clone()).unwrap();
+
+        let mut mount_src_str = String::from("/");
+        mount_src_str.push_str(system_volume);
+        let mount_src = CString::new("/proc").unwrap();
+
+        let mount_flags = MS_BIND | MS_NODEV | MS_NOSUID | MS_NOEXEC;
+
+        match create_dir(Path::new(&mount_dir)) {
+            Err(e) => {
+                println!("Error creating directory for volume! Oh no: {}", e);
+                return;
+            }
+            _ => {}
+        }
+
+        unsafe {
+            let e = mount(mount_src.as_ptr(), mount_dst.as_ptr(),
+                          ptr::null(), mount_flags, ptr::null());
+            if e != 0 {
+                println!("Oh no, could not mount a volume: {:?}",
+                         *libc::__errno_location());
+            }
+        }
+        mount_points.push(mount_dst);
+    }
+}
+
 impl App {
     fn prep_cmd(&self, exec: &Vec<String>, dir: &str,
                 app_name: &str, pod_uuid: &str) -> Command {
@@ -180,6 +216,8 @@ impl App {
 
     pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
         let mut mount_points: Vec<CString> = Vec::new();
+        mount_system_volumes(app_path, &mut mount_points);
+
         for mount_point in self.mount_points_or_empty() {
             let mut mount_src_str = String::from(vol_path);
             mount_src_str.push_str(&mount_point.name);
