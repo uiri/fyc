@@ -291,16 +291,23 @@ impl PodMetadata {
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
+        let send_json = match json::encode(&self.annotations) {
+            Err(_) => String::from("null"),
+            Ok(j) => j
+        };
+        res.send(&send_json.into_bytes()[..]).unwrap();
     }
 
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
+        res.send(&(format!("{}", self.manifest).into_bytes())[..]).unwrap();
     }
 
     fn serve_uuid(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*TEXT_PLAIN).clone());
+        res.send(&(self.uuid.clone().into_bytes())[..]).unwrap();
     }
 
 }
@@ -309,15 +316,30 @@ impl AppMetadata {
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
+        let send_json = match json::encode(&self.annotations) {
+            Err(_) => String::from("null"),
+            Ok(j) => j
+        };
+        res.send(&send_json.into_bytes()[..]).unwrap();
     }
 
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
+        let send_json = match self.manifest {
+            None => String::from("null"),
+            Some(ref m) =>
+                match json::encode(m) {
+                    Ok(j) => j,
+                    Err(_) => String::from("null")
+                }
+        };
+        res.send(&send_json.into_bytes()[..]).unwrap();
     }
 
     fn serve_id(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*TEXT_PLAIN).clone());
+        res.send(&(self.id.clone().into_bytes())[..]).unwrap();
     }
 }
