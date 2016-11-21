@@ -6,7 +6,6 @@ use hyper::status::StatusCode;
 use hyper::uri::RequestUri;
 
 use rustc_serialize::json;
-use rustc_serialize::json::Json;
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -38,7 +37,7 @@ struct PodMetadata {
     annotations: Vec<NameValue>,
     apps: HashMap<String, AppMetadata>,
     // hmac: ???
-    manifest: Json,
+    manifest: String,
     uuid: String
 }
 
@@ -177,8 +176,8 @@ impl Metadata {
         }
     }
 
-    pub fn register_pod(&mut self, manifest: String) {
-        let pod_metadata = match PodMetadata::new(manifest) {
+    pub fn register_pod(&mut self, pod: Pod) {
+        let pod_metadata = match PodMetadata::new(pod) {
             None => { return; }
             Some(pm) => pm
         };
@@ -222,14 +221,7 @@ impl Metadata {
 }
 
 impl PodMetadata {
-    fn new(manifest: String) -> Option<PodMetadata> {
-        let pod : Pod = match json::decode(&manifest) {
-            Err(e) => {
-                println!("Error decoding manifest json: {}", e);
-                return None;
-            },
-            Ok(a) => a
-        };
+    fn new(pod: Pod) -> Option<PodMetadata> {
         let annotations = pod.annotations_or_empty();
         let pod_apps = pod.apps_or_empty();
         let mut apps : HashMap<String, AppMetadata> = HashMap::new();
@@ -240,9 +232,9 @@ impl PodMetadata {
                 id: a.get_image_id()
             });
         }
-        let manifest_json = match Json::from_str(&manifest) {
+        let manifest_json = match json::encode(&pod) {
             Ok(j) => j,
-            Err(_) => Json::Null
+            Err(_) => String::from("")
         };
 
         Some(PodMetadata {
@@ -301,7 +293,7 @@ impl PodMetadata {
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        res.send(&(format!("{}", self.manifest).into_bytes())[..]).unwrap();
+        res.send(&(self.manifest.clone().into_bytes())[..]).unwrap();
     }
 
     fn serve_uuid(&self, mut res: Response) {

@@ -2,7 +2,7 @@ use aci;
 use aci::{ACI, NameValue, Isolator};
 use std::collections::HashMap;
 
-#[derive(Clone, RustcDecodable)]
+#[derive(Clone, RustcEncodable, RustcDecodable)]
 struct AppImage {
     id: String,
     name: Option<String>,
@@ -10,7 +10,7 @@ struct AppImage {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable)]
+#[derive(Clone, RustcEncodable, RustcDecodable)]
 struct MountPoint {
     name: String,
     path: String,
@@ -18,7 +18,7 @@ struct MountPoint {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable)]
+#[derive(Clone, RustcEncodable, RustcDecodable)]
 pub struct App {
     name: String,
     image: AppImage,
@@ -29,8 +29,8 @@ pub struct App {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable)]
-struct Volume {
+#[derive(Clone, RustcEncodable, RustcDecodable)]
+pub struct Volume {
     name: String,
     readOnly: Option<bool>,
     kind: String,
@@ -42,8 +42,8 @@ struct Volume {
 }
 
 #[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
-struct Port {
+#[derive(RustcEncodable, RustcDecodable)]
+pub struct Port {
     name: String,
     hostPort: usize,
     hostIP: Option<String>,
@@ -51,7 +51,7 @@ struct Port {
 }
 
 #[allow(dead_code, non_snake_case)]
-#[derive(RustcDecodable)]
+#[derive(RustcEncodable, RustcDecodable)]
 pub struct Pod {
     acVersion: String,
     acKind: String,
@@ -66,6 +66,25 @@ pub struct Pod {
 }
 
 impl Pod {
+    pub fn new(uuid: &str, version: &str, apps: Option<Vec<App>>,
+               volumes: Option<Vec<Volume>>, isolators: Option<Vec<Isolator>>,
+               annotations: Option<Vec<NameValue>>, ports: Option<Vec<Port>>,
+               user_annotations: Option<HashMap<String, String>>,
+               user_labels: Option<HashMap<String, String>>) -> Pod {
+        Pod {
+            acKind: String::from("PodManifest"),
+            acVersion: String::from(version),
+            uuid: String::from(uuid),
+            apps: apps,
+            volumes: volumes,
+            isolators: isolators,
+            annotations: annotations,
+            ports: ports,
+            userAnnotations: user_annotations,
+            userLabels: user_labels
+        }
+    }
+
     pub fn annotations_or_empty(&self) -> Vec<NameValue> {
         match self.annotations {
             None => Vec::new(),
