@@ -82,25 +82,25 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
     Some(thread::spawn(move || {
         match manifest.exec(&threadacidirstr, &pod_uuid) {
             (Some(mut app_child), pre_start, post_stop) => {
-                match pre_start {
-                    None => {},
+                let run_app_child = match pre_start {
+                    None => true,
                     Some(mut pre_start_cmd) => {
                         match pre_start_cmd.spawn().unwrap().wait() {
                             Err(e) => {
                                 println!("Error in pre-start: {}", e);
-                                return;
+                                false
                             }
-                            _ => {}
+                            _ => true
                         }
                     }
+                };
+                if run_app_child {
+                    app_child.spawn().unwrap().wait().unwrap();
                 }
-                let exit = app_child.spawn().unwrap().wait().unwrap();
                 match post_stop {
                     None => {},
                     Some(mut post_stop_cmd) => {
-                        if !exit.success() {
-                            post_stop_cmd.spawn().unwrap().wait().unwrap();
-                        }
+                        post_stop_cmd.spawn().unwrap().wait().unwrap();
                     }
                 }
             }
