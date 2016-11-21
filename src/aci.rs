@@ -100,7 +100,7 @@ pub fn unmount_volumes(mount_points: Vec<CString>) {
 
 impl App {
     fn prep_cmd(&self, exec: &Vec<String>, dir: &str,
-                app_name: &str) -> Command {
+                app_name: &str, pod_uuid: &str) -> Command {
         let mut cmd = Command::new(&exec[0]);
         cmd.args(&exec[1..]);
         match self.user.parse::<u32>() {
@@ -112,7 +112,6 @@ impl App {
             Ok(groupid) => { cmd.gid(groupid); }
         }
 
-        let pod_uuid = "";
         let mut metadata_url = String::from("http://");
         metadata_url.push_str(metadata::HOST_PORT);
         metadata_url.push('/');
@@ -216,9 +215,11 @@ impl App {
             };
 
             unsafe {
-                let e = mount(mount_src.as_ptr(), mount_dst.as_ptr(), ptr::null(), mount_flags, ptr::null());
+                let e = mount(mount_src.as_ptr(), mount_dst.as_ptr(),
+                              ptr::null(), mount_flags, ptr::null());
                 if e != 0 {
-                    println!("Oh no, could not mount a volume: {:?}", *libc::__errno_location());
+                    println!("Oh no, could not mount a volume: {:?}",
+                             *libc::__errno_location());
                 }
             }
             mount_points.push(mount_dst);
@@ -226,29 +227,33 @@ impl App {
         mount_points
     }
 
-    fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str, app_name: &str, event_name: &str) -> Option<Command> {
+    fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str,
+                         app_name: &str, pod_uuid: &str,
+                         event_name: &str) -> Option<Command> {
         for eh in ehs {
             if eh.name == event_name {
-                return Some(self.prep_cmd(&eh.exec, dir, app_name));
+                return Some(self.prep_cmd(&eh.exec, dir, app_name, pod_uuid));
             }
         }
         return None;
     }
 
-    fn exec_app(&self, dir: &str, app_name: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
+    fn exec_app(&self, dir: &str, app_name: &str,
+                pod_uuid: &str) -> (Option<Command>, Option<Command>,
+                                    Option<Command>) {
         let app_child = match self.exec {
             None => { return (None, None, None); }
-            Some(ref exec) => self.prep_cmd(exec, dir, app_name)
+            Some(ref exec) => self.prep_cmd(exec, dir, app_name, pod_uuid)
         };
 
         let pre_start = match self.eventHandlers {
             None => None,
-            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "pre-start")
+            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, pod_uuid, "pre-start")
         };
 
         let post_stop = match self.eventHandlers {
             None => None,
-            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, "post-stop")
+            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, pod_uuid, "post-stop")
         };
 
         (Some(app_child), pre_start, post_stop)
@@ -263,11 +268,11 @@ impl ACI {
         }
     }
 
-    pub fn exec(&self, dir: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
+    pub fn exec(&self, dir: &str, pod_uuid: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
         let app_name = self.name.split('/').last().unwrap();
         match self.app {
             None => (None, None, None),
-            Some(ref a) => a.exec_app(dir, app_name)
+            Some(ref a) => a.exec_app(dir, app_name, pod_uuid)
         }
     }
 }

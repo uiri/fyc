@@ -34,7 +34,8 @@ lazy_static! {
     };
 }
 
-fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>> {
+fn run_aci(arg: String, volumes: &mut HashSet<String>,
+           pod_uuid: String) -> Option<JoinHandle<()>> {
     let acipath = Path::new(&arg);
     let mut acidirstr = String::from("/opt/fyc/apps/");
     acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
@@ -79,7 +80,7 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>) -> Option<JoinHandle<()>>
     threadacidirstr.push_str("rootfs/");
     let mount_points = manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
     Some(thread::spawn(move || {
-        match manifest.exec(&threadacidirstr){
+        match manifest.exec(&threadacidirstr, &pod_uuid) {
             (Some(mut app_child), pre_start, post_stop) => {
                 match pre_start {
                     None => {},
@@ -120,8 +121,11 @@ fn main() {
 
     let close_service = metadata::start(&*METADATA_STORE);
 
+    let pod_uuid = String::from("global");
+    METADATA_STORE.write().unwrap().register_pod(format!("{{\"uuid\": \"{}\", \"manifest\": {{}}}}", pod_uuid));
+
     for arg in args {
-        match run_aci(arg, &mut volumes) {
+        match run_aci(arg, &mut volumes, pod_uuid.clone()) {
             None => {},
             Some(h) => { handles.push(h); }
         }
@@ -134,6 +138,5 @@ fn main() {
         }
     }
 
-    METADATA_STORE.write().unwrap().register_pod("{\"uuid\": \"\"}");
     close_service.send(true).unwrap();
 }

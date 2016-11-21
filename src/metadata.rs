@@ -30,11 +30,11 @@ struct PodMetadata {
     apps: HashMap<String, AppMetadata>,
     // hmac: ???
     manifest: Json,
-    uuid: [u8; 16]
+    uuid: String
 }
 
 pub struct Metadata {
-    pod_map: HashMap<[u8; 16], PodMetadata>
+    pod_map: HashMap<String, PodMetadata>
 }
 
 pub fn start(md: &'static RwLock<Metadata>) -> Sender<bool> {
@@ -168,23 +168,23 @@ impl Metadata {
         }
     }
 
-    pub fn register_pod(&mut self, manifest: &str) {
-        let pod_metadata = match PodMetadata::new(manifest.to_string()) {
+    pub fn register_pod(&mut self, manifest: String) {
+        let pod_metadata = match PodMetadata::new(manifest) {
             None => { return; }
             Some(pm) => pm
         };
-        self.pod_map.insert(pod_metadata.uuid, pod_metadata);
+        self.pod_map.insert(pod_metadata.uuid.clone(), pod_metadata);
     }
 
     fn get_by_token(&self, token: Option<&str>) -> Option<&PodMetadata> {
         match token {
             None => None,
-            Some(tok) => self.pod_map.get(tok.as_bytes())
+            Some(tok) => self.pod_map.get(&String::from(tok))
         }
     }
 
     #[allow(dead_code)]
-    fn get_pod(&self, uuid: [u8; 16]) -> String {
+    pub fn get_pod(&self, uuid: String) -> String {
         match self.pod_map.get(&uuid) {
             None => String::new(),
             Some(pmd) =>
@@ -196,7 +196,7 @@ impl Metadata {
     }
 
     #[allow(dead_code)]
-    fn get_app(&self, uuid: [u8; 16], app_name: String) -> String {
+    fn get_app(&self, uuid: String, app_name: String) -> String {
         match self.pod_map.get(&uuid) {
             None => String::new(),
             Some(pmd) =>

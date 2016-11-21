@@ -78,20 +78,8 @@ impl Pod {
         }
     }
 
-    pub fn get_uuid(&self) -> [u8; 16] {
-        let mut bytes_uuid : [u8; 16] = [0; 16];
-        let uuid_vec = self.uuid.clone().into_bytes();
-        let l = if uuid_vec.len() < 16 {
-            uuid_vec.len()
-        } else {
-            16
-        };
-
-        for i in 0..l {
-            bytes_uuid[i] = uuid_vec[i];
-        }
-
-        bytes_uuid
+    pub fn get_uuid(&self) -> String {
+        self.uuid.clone()
     }
 }
 
