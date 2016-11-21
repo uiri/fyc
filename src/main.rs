@@ -121,8 +121,8 @@ fn main() {
 
     let close_service = metadata::start(&*METADATA_STORE);
 
-    let pod_uuid = String::from("global");
-    METADATA_STORE.write().unwrap().register_pod(format!("{{\"uuid\": \"{}\", \"manifest\": {{}}}}", pod_uuid));
+    let pod_uuid = String::from("ffffffffffffffffffffffffffffffff");
+    METADATA_STORE.write().unwrap().register_pod(format!("{{\"acKind\": \"PodManifest\", \"acVersion\": \"0.8.9\", \"uuid\": \"{}\", \"manifest\": {{}}}}", pod_uuid));
 
     for arg in args {
         match run_aci(arg, &mut volumes, pod_uuid.clone()) {

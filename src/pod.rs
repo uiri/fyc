@@ -53,6 +53,8 @@ struct Port {
 #[allow(dead_code, non_snake_case)]
 #[derive(RustcDecodable)]
 pub struct Pod {
+    acVersion: String,
+    acKind: String,
     uuid: String,
     apps: Option<Vec<App>>,
     volumes: Option<Vec<Volume>>,
