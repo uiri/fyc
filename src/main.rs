@@ -13,11 +13,13 @@ use flate2::read::GzDecoder;
 
 use rustc_serialize::json;
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::fs::{create_dir, File};
 use std::io::Read;
 use std::path::Path;
+use std::sync::mpsc::{channel, Sender};
 use std::sync::RwLock;
 use std::thread;
 use std::thread::JoinHandle;
@@ -35,7 +37,7 @@ lazy_static! {
 }
 
 fn run_aci(arg: String, volumes: &mut HashSet<String>,
-           pod_uuid: String) -> Option<JoinHandle<()>> {
+           pod_uuid: String) -> Option<(Sender<bool>, JoinHandle<()>)> {
     let acipath = Path::new(&arg);
     let mut acidirstr = String::from("/opt/fyc/apps/");
     acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
@@ -79,7 +81,9 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
     let mut threadacidirstr = acidirstr.clone();
     threadacidirstr.push_str("rootfs/");
     let mount_points = manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
-    Some(thread::spawn(move || {
+    let (s, r) = channel();
+    Some((s, thread::spawn(move || {
+        r.recv().unwrap();
         match manifest.exec(&threadacidirstr, &pod_uuid) {
             (Some(mut app_child), pre_start, post_stop) => {
                 let run_app_child = match pre_start {
@@ -107,11 +111,12 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
             (None, _, _) => {}
         }
         aci::unmount_volumes(mount_points);
-    }))
+    })))
 }
 
 fn main() {
     let mut args = env::args();
+    let mut app_threads = Vec::new();
     let mut handles = Vec::new();
 
     // first argument is the name of the binary
@@ -123,17 +128,26 @@ fn main() {
 
     let pod_uuid = String::from("ffffffffffffffffffffffffffffffff");
     let pod_version = "0.8.9";
-    let pod = pod::Pod::new(&pod_uuid.clone(), pod_version, Some(Vec::new()),
-                            Some(Vec::new()), Some(Vec::new()),
-                            Some(Vec::new()), Some(Vec::new()), None, None);
     // METADATA_STORE.write().unwrap().register_pod(format!("{{\"acKind\": \"PodManifest\", \"acVersion\":, \"uuid\": \"{}\", \"annotations\": []}}", pod_uuid));
-    METADATA_STORE.write().unwrap().register_pod(pod);
 
     for arg in args {
         match run_aci(arg, &mut volumes, pod_uuid.clone()) {
             None => {},
-            Some(h) => { handles.push(h); }
+            Some(t) => { app_threads.push(t); }
         }
+    }
+
+    let app_pod = pod::Pod::new(
+        &pod_uuid.clone(), pod_version, Some(Vec::new()), volumes,
+        Some(Vec::new()), Some(Vec::new()), Some(Vec::new()),
+        Some(HashMap::new()), Some(HashMap::new())
+    );
+
+    METADATA_STORE.write().unwrap().register_pod(app_pod);
+
+    for (s, h) in app_threads {
+        s.send(true).unwrap();
+        handles.push(h);
     }
 
     for handle in handles {

@@ -1,6 +1,7 @@
 use aci;
 use aci::{ACI, NameValue, Isolator};
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Clone, RustcEncodable, RustcDecodable)]
 struct AppImage {
@@ -67,16 +68,29 @@ pub struct Pod {
 
 impl Pod {
     pub fn new(uuid: &str, version: &str, apps: Option<Vec<App>>,
-               volumes: Option<Vec<Volume>>, isolators: Option<Vec<Isolator>>,
+               volume_set: HashSet<String>, isolators: Option<Vec<Isolator>>,
                annotations: Option<Vec<NameValue>>, ports: Option<Vec<Port>>,
                user_annotations: Option<HashMap<String, String>>,
                user_labels: Option<HashMap<String, String>>) -> Pod {
+        let mut volumes : Vec<Volume> = Vec::new();
+        for volume in volume_set {
+            volumes.push(Volume {
+                name: volume,
+                kind: String::from("empty"),
+                readOnly: Some(false),
+                source: Some(String::new()),
+                recursive: Some(false),
+                mode: None,
+                uid: None,
+                gid: None
+            });
+        }
         Pod {
             acKind: String::from("PodManifest"),
             acVersion: String::from(version),
             uuid: String::from(uuid),
             apps: apps,
-            volumes: volumes,
+            volumes: Some(volumes),
             isolators: isolators,
             annotations: annotations,
             ports: ports,
