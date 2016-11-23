@@ -37,10 +37,14 @@ lazy_static! {
     };
 }
 
+const VOL_DIR : &'static str = "volumes/";
+const APP_DIR : &'static str = "apps/";
+
 fn run_aci(arg: String, volumes: &mut HashSet<String>,
-           pod_uuid: uuid::Uuid) -> Option<(Sender<bool>, JoinHandle<()>)> {
+           pod_uuid: uuid::Uuid, base_dir: String) -> Option<(Sender<bool>, JoinHandle<()>)> {
     let acipath = Path::new(&arg);
-    let mut acidirstr = String::from("/opt/fyc/apps/");
+    let mut acidirstr = base_dir.clone();
+    acidirstr.push_str(APP_DIR);
     acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
     acidirstr.push('/');
     let acidir = Path::new(&acidirstr);
@@ -81,7 +85,9 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
 
     let mut threadacidirstr = acidirstr.clone();
     threadacidirstr.push_str("rootfs/");
-    let mount_points = manifest.mount_volumes("/opt/fyc/volumes/", &threadacidirstr, volumes);
+    let mut volstr = base_dir.clone();
+    volstr.push_str(VOL_DIR);
+    let mount_points = manifest.mount_volumes(&volstr, &threadacidirstr, volumes);
     let (s, r) = channel();
     Some((s, thread::spawn(move || {
         r.recv().unwrap();
@@ -131,8 +137,39 @@ fn main() {
     let pod_version = "0.8.9";
     // METADATA_STORE.write().unwrap().register_pod(format!("{{\"acKind\": \"PodManifest\", \"acVersion\":, \"uuid\": \"{}\", \"annotations\": []}}", pod_uuid));
 
+    let mut pod_dir = String::from("/opt/fyc/");
+    pod_dir.push_str(&pod_uuid.hyphenated().to_string());
+    pod_dir.push('/');
+    match create_dir(pod_dir.clone()) {
+        Err(_) => {
+            println!("Error creating directory for Pod");
+            return;
+        },
+        _ => {}
+    }
+
+    let mut pod_apps_dir = pod_dir.clone();
+    pod_apps_dir.push_str(APP_DIR);
+    match create_dir(pod_apps_dir) {
+        Err(_) => {
+            println!("Error creating apps directory for Pod");
+            return;
+        },
+        _ => {}
+    }
+
+    let mut pod_vol_dir = pod_dir.clone();
+    pod_vol_dir.push_str(VOL_DIR);
+    match create_dir(pod_vol_dir) {
+        Err(_) => {
+            println!("Error creating volumes directory for Pod");
+            return;
+        },
+        _ => {}
+    }
+
     for arg in args {
-        match run_aci(arg, &mut volumes, pod_uuid.clone()) {
+        match run_aci(arg, &mut volumes, pod_uuid.clone(), pod_dir.clone()) {
             None => {},
             Some(t) => { app_threads.push(t); }
         }
