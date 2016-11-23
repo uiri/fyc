@@ -8,6 +8,7 @@ extern crate lazy_static;
 extern crate libc;
 extern crate rustc_serialize;
 extern crate tar;
+extern crate uuid;
 
 use flate2::read::GzDecoder;
 
@@ -37,7 +38,7 @@ lazy_static! {
 }
 
 fn run_aci(arg: String, volumes: &mut HashSet<String>,
-           pod_uuid: String) -> Option<(Sender<bool>, JoinHandle<()>)> {
+           pod_uuid: uuid::Uuid) -> Option<(Sender<bool>, JoinHandle<()>)> {
     let acipath = Path::new(&arg);
     let mut acidirstr = String::from("/opt/fyc/apps/");
     acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
@@ -84,7 +85,7 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
     let (s, r) = channel();
     Some((s, thread::spawn(move || {
         r.recv().unwrap();
-        match manifest.exec(&threadacidirstr, &pod_uuid) {
+        match manifest.exec(&threadacidirstr, pod_uuid) {
             (Some(mut app_child), pre_start, post_stop) => {
                 let run_app_child = match pre_start {
                     None => true,
@@ -126,7 +127,7 @@ fn main() {
 
     let close_service = metadata::start(&*METADATA_STORE);
 
-    let pod_uuid = String::from("ffffffffffffffffffffffffffffffff");
+    let pod_uuid = uuid::Uuid::new_v4();
     let pod_version = "0.8.9";
     // METADATA_STORE.write().unwrap().register_pod(format!("{{\"acKind\": \"PodManifest\", \"acVersion\":, \"uuid\": \"{}\", \"annotations\": []}}", pod_uuid));
 
@@ -138,7 +139,7 @@ fn main() {
     }
 
     let app_pod = pod::Pod::new(
-        &pod_uuid.clone(), pod_version, Some(Vec::new()), volumes,
+        pod_uuid.clone(), pod_version, Some(Vec::new()), volumes,
         Some(Vec::new()), Some(Vec::new()), Some(Vec::new()),
         Some(HashMap::new()), Some(HashMap::new())
     );

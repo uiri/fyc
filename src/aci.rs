@@ -12,6 +12,7 @@ use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use std::ptr;
+use uuid::Uuid;
 
 const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const FYC: &'static str = "fyc";
@@ -136,7 +137,7 @@ fn mount_system_volumes(app_path: &str, mount_points: &mut Vec<CString>) {
 
 impl App {
     fn prep_cmd(&self, exec: &Vec<String>, dir: &str,
-                app_name: &str, pod_uuid: &str) -> Command {
+                app_name: &str, pod_uuid: Uuid) -> Command {
         let mut cmd = Command::new(&exec[0]);
         cmd.args(&exec[1..]);
         match self.user.parse::<u32>() {
@@ -151,7 +152,7 @@ impl App {
         let mut metadata_url = String::from("http://");
         metadata_url.push_str(metadata::HOST_PORT);
         metadata_url.push('/');
-        metadata_url.push_str(pod_uuid);
+        metadata_url.push_str(&pod_uuid.hyphenated().to_string());
 
         cmd.env("PATH", ACE_PATH);
         cmd.env("AC_APP_NAME", app_name);
@@ -266,7 +267,7 @@ impl App {
     }
 
     fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str,
-                         app_name: &str, pod_uuid: &str,
+                         app_name: &str, pod_uuid: Uuid,
                          event_name: &str) -> Option<Command> {
         for eh in ehs {
             if eh.name == event_name {
@@ -277,7 +278,7 @@ impl App {
     }
 
     fn exec_app(&self, dir: &str, app_name: &str,
-                pod_uuid: &str) -> (Option<Command>, Option<Command>,
+                pod_uuid: Uuid) -> (Option<Command>, Option<Command>,
                                     Option<Command>) {
         let app_child = match self.exec {
             None => { return (None, None, None); }
@@ -306,7 +307,7 @@ impl ACI {
         }
     }
 
-    pub fn exec(&self, dir: &str, pod_uuid: &str) -> (Option<Command>, Option<Command>, Option<Command>) {
+    pub fn exec(&self, dir: &str, pod_uuid: Uuid) -> (Option<Command>, Option<Command>, Option<Command>) {
         let app_name = self.name.split('/').last().unwrap();
         match self.app {
             None => (None, None, None),

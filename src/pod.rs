@@ -2,6 +2,7 @@ use aci;
 use aci::{ACI, NameValue, Isolator};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use uuid::Uuid;
 
 #[derive(Clone, RustcEncodable, RustcDecodable)]
 struct AppImage {
@@ -67,7 +68,7 @@ pub struct Pod {
 }
 
 impl Pod {
-    pub fn new(uuid: &str, version: &str, apps: Option<Vec<App>>,
+    pub fn new(uuid: Uuid, version: &str, apps: Option<Vec<App>>,
                volume_set: HashSet<String>, isolators: Option<Vec<Isolator>>,
                annotations: Option<Vec<NameValue>>, ports: Option<Vec<Port>>,
                user_annotations: Option<HashMap<String, String>>,
@@ -88,7 +89,7 @@ impl Pod {
         Pod {
             acKind: String::from("PodManifest"),
             acVersion: String::from(version),
-            uuid: String::from(uuid),
+            uuid: uuid.hyphenated().to_string(),
             apps: apps,
             volumes: Some(volumes),
             isolators: isolators,

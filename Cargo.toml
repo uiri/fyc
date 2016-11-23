@@ -16,3 +16,4 @@ lazy_static = "*"
 libc = "*"
 rustc-serialize = "*"
 tar = "*"
+uuid = { version = "*", features = ["rustc-serialize", "v4"] }
