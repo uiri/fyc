@@ -1,35 +1,13 @@
 use aci;
-use aci::{ACI, NameValue, Isolator};
+use aci::Isolator;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use uuid::Uuid;
 use util::vec_or_empty;
+use aci::NameValue;
 
-#[derive(Clone, RustcEncodable, RustcDecodable)]
-struct AppImage {
-    id: String,
-    name: Option<String>,
-    labels: Option<Vec<NameValue>>
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, RustcEncodable, RustcDecodable)]
-struct MountPoint {
-    name: String,
-    path: String,
-    appVolume: Option<Volume>
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, RustcEncodable, RustcDecodable)]
-pub struct App {
-    name: String,
-    image: AppImage,
-    app: Option<ACI>,
-    readOnlyRootFS: Option<bool>,
-    mounts: Option<Vec<MountPoint>>,
-    annotations: Option<Vec<NameValue>>
-}
+mod app;
+use self::app::App;
 
 #[allow(non_snake_case)]
 #[derive(Clone, RustcEncodable, RustcDecodable)]
@@ -111,23 +89,5 @@ impl Pod {
 
     pub fn get_uuid(&self) -> String {
         self.uuid.clone()
-    }
-}
-
-impl App {
-    pub fn get_app(&self) -> Option<ACI> {
-        self.app.clone()
-    }
-
-    pub fn get_annotations(&self) -> Vec<NameValue> {
-        vec_or_empty(self.annotations.as_ref())
-    }
-
-    pub fn get_image_id(&self) -> String {
-        self.image.id.clone()
-    }
-
-    pub fn get_name(&self) -> String {
-        self.name.clone()
     }
 }
