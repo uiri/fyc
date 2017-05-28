@@ -50,7 +50,7 @@ pub struct Port {
     name: String,
     hostPort: usize,
     hostIP: Option<String>,
-    podPort: Option<aci::Port>
+    podPort: Option<aci::app::Port>
 }
 
 #[allow(dead_code, non_snake_case)]

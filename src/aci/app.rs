@@ -1,4 +1,4 @@
-use libc::{chroot, mount, umount, MS_BIND, MS_RDONLY, MS_NODEV, MS_NOEXEC, MS_NOSUID};
+use libc::{chroot, mount, MS_BIND, MS_RDONLY, MS_NODEV, MS_NOEXEC, MS_NOSUID};
 use libc;
 
 use metadata;
@@ -15,31 +15,16 @@ use std::ptr;
 use uuid::Uuid;
 use util::vec_or_empty;
 
+use super::MountPoint;
+use super::NameValue;
+
 const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const FYC: &'static str = "fyc";
-
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-pub struct NameValue {
-    name: String,
-    value: String
-}
 
 #[derive(Clone, RustcDecodable, RustcEncodable)]
 struct EventHandler {
     exec: Vec<String>,
     name: String
-}
-
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-pub struct Isolator {
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-struct MountPoint {
-    name: String,
-    path: String,
-    readOnly: Option<bool>
 }
 
 #[allow(non_snake_case)]
@@ -52,9 +37,13 @@ pub struct Port {
     socketActivated: Option<bool>
 }
 
+#[derive(Clone, RustcDecodable, RustcEncodable)]
+pub struct Isolator {
+}
+
 #[allow(non_snake_case)]
 #[derive(Clone, RustcDecodable, RustcEncodable)]
-struct App {
+pub struct App {
     exec: Option<Vec<String>>,
     user: String,
     group: String,
@@ -65,39 +54,6 @@ struct App {
     isolators: Option<Vec<Isolator>>,
     mountPoints: Option<Vec<MountPoint>>,
     ports: Option<Vec<Port>>
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-struct Dependency {
-    imageName: String,
-    imageID: Option<String>,
-    labels: Option<Vec<NameValue>>,
-    size: Option<usize>
-}
-
-#[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-pub struct ACI {
-    acKind: String,
-    acVersion: String,
-    name: String,
-    labels: Option<Vec<NameValue>>,
-    app: Option<App>,
-    dependencies: Option<Vec<Dependency>>,
-    pathWhitelist: Option<Vec<String>>,
-    annotations: Option<Vec<NameValue>>
-}
-
-pub fn unmount_volumes(mount_points: Vec<CString>) {
-    for mount_point in mount_points {
-        unsafe {
-            let e = umount(mount_point.as_ptr());
-            if e != 0 {
-                println!("Oh no, could not unmount: {:?}", *libc::__errno_location());
-            }
-        }
-    }
 }
 
 fn mount_system_volumes(app_path: &str, mount_points: &mut Vec<CString>) {
@@ -269,7 +225,7 @@ impl App {
         return None;
     }
 
-    fn exec_app(&self, dir: &str, app_name: &str,
+    pub fn exec_app(&self, dir: &str, app_name: &str,
                 pod_uuid: Uuid) -> (Option<Command>, Option<Command>,
                                     Option<Command>) {
         let app_child = if let Some(ref exec) = self.exec {
@@ -291,31 +247,5 @@ impl App {
         };
 
         (Some(app_child), pre_start, post_stop)
-    }
-}
-
-impl ACI {
-    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
-        match self.app {
-            None => Vec::new(),
-            Some(ref a) => a.mount_volumes(vol_path, app_path, volumes)
-        }
-    }
-
-    pub fn exec(&self, dir: &str, pod_uuid: Uuid) -> (Option<Command>, Option<Command>, Option<Command>) {
-        let app_name = self.name.split('/').last().unwrap();
-        match self.app {
-            None => (None, None, None),
-            Some(ref a) => a.exec_app(dir, app_name, pod_uuid)
-        }
-    }
-}
-
-impl MountPoint {
-    pub fn read_only(&self) -> bool {
-        match self.readOnly {
-            None => false,
-            Some(b) => b
-        }
     }
 }
