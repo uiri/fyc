@@ -13,6 +13,7 @@ use std::path::Path;
 use std::process::Command;
 use std::ptr;
 use uuid::Uuid;
+use util::vec_or_empty;
 
 const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const FYC: &'static str = "fyc";
@@ -115,12 +116,9 @@ fn mount_system_volumes(app_path: &str, mount_points: &mut Vec<CString>) {
 
         let mount_flags = MS_BIND | MS_NODEV | MS_NOSUID | MS_NOEXEC;
 
-        match create_dir(Path::new(&mount_dir)) {
-            Err(e) => {
-                println!("Error creating directory for volume! Oh no: {}", e);
-                return;
-            }
-            _ => {}
+        if let Err(e) = create_dir(Path::new(&mount_dir)) {
+            println!("Error creating directory for volume! Oh no: {}", e);
+            return;
         }
 
         unsafe {
@@ -140,13 +138,12 @@ impl App {
                 app_name: &str, pod_uuid: Uuid) -> Command {
         let mut cmd = Command::new(&exec[0]);
         cmd.args(&exec[1..]);
-        match self.user.parse::<u32>() {
-            Err(_) => {}, // find actual user
-            Ok(userid) => { cmd.uid(userid); }
+        if let Ok(userid) = self.user.parse::<u32>() {
+            cmd.uid(userid);
         }
-        match self.group.parse::<u32>() {
-            Err(_) => {}, // find actual group
-            Ok(groupid) => { cmd.gid(groupid); }
+
+        if let Ok(groupid) = self.group.parse::<u32>() {
+            cmd.gid(groupid);
         }
 
         let mut metadata_url = String::from("http://");
@@ -158,14 +155,12 @@ impl App {
         cmd.env("AC_APP_NAME", app_name);
         cmd.env("AC_METADATA_URL", metadata_url);
         cmd.env("container", FYC);
-        match self.environment {
-            None => {},
-            Some(ref env_vars) => {
-                for ekv in env_vars {
-                    cmd.env(&ekv.name, &ekv.value);
-                }
+        if let Some(ref env_vars) = self.environment {
+            for ekv in env_vars {
+                cmd.env(&ekv.name, &ekv.value);
             }
         }
+
         let closed_dir = String::from(dir);
         let work_dir = match self.workingDirectory {
             None => None,
@@ -209,10 +204,7 @@ impl App {
     }
 
     fn mount_points_or_empty(&self) -> Vec<MountPoint> {
-        match self.mountPoints {
-            Some(ref v) => (*v).clone(),
-            None => Vec::new()
-        }
+        vec_or_empty(self.mountPoints.as_ref())
     }
 
     pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
@@ -280,19 +272,22 @@ impl App {
     fn exec_app(&self, dir: &str, app_name: &str,
                 pod_uuid: Uuid) -> (Option<Command>, Option<Command>,
                                     Option<Command>) {
-        let app_child = match self.exec {
-            None => { return (None, None, None); }
-            Some(ref exec) => self.prep_cmd(exec, dir, app_name, pod_uuid)
+        let app_child = if let Some(ref exec) = self.exec {
+            self.prep_cmd(exec, dir, app_name, pod_uuid)
+        } else {
+            return (None, None, None);
         };
 
-        let pre_start = match self.eventHandlers {
-            None => None,
-            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, pod_uuid, "pre-start")
+        let pre_start = if let Some(ref ehs) = self.eventHandlers {
+            self.find_event_handle(ehs, dir, app_name, pod_uuid, "pre-start")
+        } else {
+            None
         };
 
-        let post_stop = match self.eventHandlers {
-            None => None,
-            Some(ref ehs) => self.find_event_handle(ehs, dir, app_name, pod_uuid, "post-stop")
+        let post_stop = if let Some(ref ehs) = self.eventHandlers {
+            self.find_event_handle(ehs, dir, app_name, pod_uuid, "post-stop")
+        } else {
+            None
         };
 
         (Some(app_child), pre_start, post_stop)

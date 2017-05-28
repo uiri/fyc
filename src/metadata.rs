@@ -82,12 +82,11 @@ impl Metadata {
             return;
         };
 
-        let pmd = match self.get_by_token(req_path_segs.next()) {
-            Some(p) => p,
-            None => {
-                *res.status_mut() = StatusCode::NotFound;
-                return;
-            }
+        let pmd = if let Some(p) = self.get_by_token(req_path_segs.next()) {
+            p
+        } else {
+            *res.status_mut() = StatusCode::NotFound;
+            return;
         };
 
         if req_path_segs.next() != Some("acMetadata") {
@@ -136,12 +135,11 @@ impl Metadata {
                         }
                     }
                     Some("apps") => {
-                        let appmd = match pmd.get_app(req_path_segs.next()) {
-                            Some(a) => a,
-                            None => {
-                                *res.status_mut() = StatusCode::NotFound;
-                                return;
-                            }
+                        let appmd = if let Some(a) = pmd.get_app(req_path_segs.next()) {
+                            a
+                        } else {
+                            *res.status_mut() = StatusCode::NotFound;
+                            return;
                         };
 
                         match req_path_segs.next() {
@@ -177,46 +175,39 @@ impl Metadata {
     }
 
     pub fn register_pod(&mut self, pod: Pod) {
-        let pod_metadata = match PodMetadata::new(pod) {
-            None => { return; }
-            Some(pm) => pm
-        };
-        self.pod_map.insert(pod_metadata.uuid.clone(), pod_metadata);
+        if let Some(pod_metadata) = PodMetadata::new(pod) {
+            self.pod_map.insert(pod_metadata.uuid.clone(), pod_metadata);
+        }
     }
 
     fn get_by_token(&self, token: Option<&str>) -> Option<&PodMetadata> {
-        match token {
-            None => None,
-            Some(tok) => self.pod_map.get(&String::from(tok))
+        if let Some(tok) = token {
+            self.pod_map.get(&String::from(tok))
+        } else {
+            None
         }
     }
 
     #[allow(dead_code)]
     pub fn get_pod(&self, uuid: String) -> String {
-        match self.pod_map.get(&uuid) {
-            None => String::new(),
-            Some(pmd) =>
-                match json::encode(pmd) {
-                    Err(_) => String::new(),
-                    Ok(s) => s
-                }
+        if let Some(pmd) = self.pod_map.get(&uuid) {
+            if let Ok(s) = json::encode(pmd) {
+                return s;
+            }
         }
+        String::new()
     }
 
     #[allow(dead_code)]
     fn get_app(&self, uuid: String, app_name: String) -> String {
-        match self.pod_map.get(&uuid) {
-            None => String::new(),
-            Some(pmd) =>
-                match pmd.apps.get(&app_name) {
-                    None => String::new(),
-                    Some(amd) =>
-                        match json::encode(amd) {
-                            Err(_) => String::new(),
-                            Ok(s) => s
-                        }
+        if let Some(pmd) = self.pod_map.get(&uuid) {
+            if let Some(amd) = pmd.apps.get(&app_name) {
+                if let Ok(s) = json::encode(amd) {
+                    return s;
                 }
+            }
         }
+        String::new()
     }
 }
 
@@ -232,9 +223,11 @@ impl PodMetadata {
                 id: a.get_image_id()
             });
         }
-        let manifest_json = match json::encode(&pod) {
-            Ok(j) => j,
-            Err(_) => String::from("")
+
+        let manifest_json = if let Ok(j) = json::encode(&pod) {
+            j
+        } else {
+            String::from("")
         };
 
         Some(PodMetadata {
@@ -246,21 +239,19 @@ impl PodMetadata {
     }
 
     fn get_app(&self, app: Option<&str>) -> Option<&AppMetadata> {
-        match app {
-            None => None,
-            Some(app_name) => self.apps.get(&String::from(app_name))
+        if let Some(app_name) = app {
+            return self.apps.get(&String::from(app_name));
         }
+        None
     }
 
     fn sign(&self, mut req: Request, mut res: Response) {
         let ref mut req_body = Vec::new();
-        match req.read_to_end(req_body) {
-            Err(_) => {
-                *res.status_mut() = StatusCode::InternalServerError;
-                return;
-            }
-            _ => {}
+        if req.read_to_end(req_body).is_err() {
+            *res.status_mut() = StatusCode::InternalServerError;
+            return;
         }
+
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
@@ -268,13 +259,11 @@ impl PodMetadata {
 
     fn verify(&self, mut req: Request, mut res: Response) {
         let ref mut req_body = Vec::new();
-        match req.read_to_end(req_body) {
-            Err(_) => {
-                *res.status_mut() = StatusCode::InternalServerError;
-                return;
-            }
-            _ => {}
+        if req.read_to_end(req_body).is_err() {
+            *res.status_mut() = StatusCode::InternalServerError;
+            return;
         }
+
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
@@ -283,9 +272,10 @@ impl PodMetadata {
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        let send_json = match json::encode(&self.annotations) {
-            Err(_) => String::from("null"),
-            Ok(j) => j
+        let send_json = if let Ok(j) = json::encode(&self.annotations) {
+            j
+        } else {
+            String::from("null")
         };
         res.send(&send_json.into_bytes()[..]).unwrap();
     }
@@ -308,9 +298,10 @@ impl AppMetadata {
     fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        let send_json = match json::encode(&self.annotations) {
-            Err(_) => String::from("null"),
-            Ok(j) => j
+        let send_json = if let Ok(j) = json::encode(&self.annotations) {
+            j
+        } else {
+            String::from("null")
         };
         res.send(&send_json.into_bytes()[..]).unwrap();
     }
@@ -318,15 +309,13 @@ impl AppMetadata {
     fn serve_manifest(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        let send_json = match self.manifest {
-            None => String::from("null"),
-            Some(ref m) =>
-                match json::encode(m) {
-                    Ok(j) => j,
-                    Err(_) => String::from("null")
-                }
+        if let Some(ref m) = self.manifest {
+            if let Ok(j) = json::encode(m) {
+                res.send(&j.into_bytes()[..]).unwrap();
+                return;
+            }
         };
-        res.send(&send_json.into_bytes()[..]).unwrap();
+        res.send(b"null").unwrap();
     }
 
     fn serve_id(&self, mut res: Response) {

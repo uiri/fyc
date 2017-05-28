@@ -3,6 +3,7 @@ use aci::{ACI, NameValue, Isolator};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use uuid::Uuid;
+use util::vec_or_empty;
 
 #[derive(Clone, RustcEncodable, RustcDecodable)]
 struct AppImage {
@@ -101,17 +102,11 @@ impl Pod {
     }
 
     pub fn annotations_or_empty(&self) -> Vec<NameValue> {
-        match self.annotations {
-            None => Vec::new(),
-            Some(ref a) => (*a).clone()
-        }
+        vec_or_empty(self.annotations.as_ref())
     }
 
     pub fn apps_or_empty(&self) -> Vec<App> {
-        match self.apps {
-            None => Vec::new(),
-            Some(ref a) => (*a).clone()
-        }
+        vec_or_empty(self.apps.as_ref())
     }
 
     pub fn get_uuid(&self) -> String {
@@ -125,10 +120,7 @@ impl App {
     }
 
     pub fn get_annotations(&self) -> Vec<NameValue> {
-        match self.annotations {
-            None => Vec::new(),
-            Some(ref a) => (*a).clone()
-        }
+        vec_or_empty(self.annotations.as_ref())
     }
 
     pub fn get_image_id(&self) -> String {

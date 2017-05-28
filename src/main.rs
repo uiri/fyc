@@ -1,5 +1,4 @@
 //! fyc - Fuck Yo Container
-#![feature(process_exec)]
 
 extern crate flate2;
 extern crate hyper;
@@ -30,6 +29,7 @@ use tar::Archive;
 mod aci;
 mod metadata;
 mod pod;
+mod util;
 
 lazy_static! {
     static ref METADATA_STORE : RwLock<metadata::Metadata> = {
@@ -50,29 +50,20 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
     let acidir = Path::new(&acidirstr);
     let tarfile = File::open(acipath).unwrap();
     let mut acitar = Archive::new(GzDecoder::new(tarfile).unwrap());
-    match create_dir(acidir) {
-        Err(_) => {
-            println!("Error creating directory for ACI");
-            return None;
-        },
-        _ => {}
+    if create_dir(acidir).is_err() {
+        println!("Error creating directory for ACI");
+        return None;
     }
 
-    match acitar.unpack(acidir) {
-        Err(_) => {
-            println!("Error unpacking tarfile");
-            return None;
-        },
-        _ => {}
+    if acitar.unpack(acidir).is_err() {
+        println!("Error unpacking tarfile");
+        return None;
     }
 
     let mut manifest_str = String::new();
-    match File::open(acidir.join("manifest")).unwrap().read_to_string(&mut manifest_str) {
-        Err(_) => {
-            println!("Error reading manifest json");
-            return None;
-        },
-        _ => {}
+    if File::open(acidir.join("manifest")).unwrap().read_to_string(&mut manifest_str).is_err() {
+        println!("Error reading manifest json");
+        return None;
     }
 
     let manifest : aci::ACI = match json::decode(&manifest_str) {
@@ -91,31 +82,23 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
     let (s, r) = channel();
     Some((s, thread::spawn(move || {
         r.recv().unwrap();
-        match manifest.exec(&threadacidirstr, pod_uuid) {
-            (Some(mut app_child), pre_start, post_stop) => {
-                let run_app_child = match pre_start {
-                    None => true,
-                    Some(mut pre_start_cmd) => {
-                        match pre_start_cmd.spawn().unwrap().wait() {
-                            Err(e) => {
-                                println!("Error in pre-start: {}", e);
-                                false
-                            }
-                            _ => true
-                        }
-                    }
-                };
-                if run_app_child {
-                    app_child.spawn().unwrap().wait().unwrap();
+        if let (Some(mut app_child), pre_start, post_stop) = manifest.exec(&threadacidirstr, pod_uuid) {
+            let run_app_child = if let Some(mut pre_start_cmd) = pre_start {
+                if let Err(e) = pre_start_cmd.spawn().unwrap().wait() {
+                    println!("Error in pre-start: {}", e);
+                    false
+                } else {
+                    true
                 }
-                match post_stop {
-                    None => {},
-                    Some(mut post_stop_cmd) => {
-                        post_stop_cmd.spawn().unwrap().wait().unwrap();
-                    }
-                }
+            } else {
+                true
+            };
+            if run_app_child {
+                app_child.spawn().unwrap().wait().unwrap();
             }
-            (None, _, _) => {}
+            if let Some(mut post_stop_cmd) = post_stop {
+                post_stop_cmd.spawn().unwrap().wait().unwrap();
+            }
         }
         aci::unmount_volumes(mount_points);
     })))
@@ -140,38 +123,28 @@ fn main() {
     let mut pod_dir = String::from("/opt/fyc/");
     pod_dir.push_str(&pod_uuid.hyphenated().to_string());
     pod_dir.push('/');
-    match create_dir(pod_dir.clone()) {
-        Err(_) => {
-            println!("Error creating directory for Pod");
-            return;
-        },
-        _ => {}
+    if create_dir(pod_dir.clone()).is_err() {
+        println!("Error creating directory for Pod");
+        return;
     }
 
     let mut pod_apps_dir = pod_dir.clone();
     pod_apps_dir.push_str(APP_DIR);
-    match create_dir(pod_apps_dir) {
-        Err(_) => {
-            println!("Error creating apps directory for Pod");
-            return;
-        },
-        _ => {}
+    if create_dir(pod_apps_dir).is_err() {
+        println!("Error creating apps directory for Pod");
+        return;
     }
 
     let mut pod_vol_dir = pod_dir.clone();
     pod_vol_dir.push_str(VOL_DIR);
-    match create_dir(pod_vol_dir) {
-        Err(_) => {
-            println!("Error creating volumes directory for Pod");
-            return;
-        },
-        _ => {}
+    if create_dir(pod_vol_dir).is_err() {
+        println!("Error creating volumes directory for Pod");
+        return;
     }
 
     for arg in args {
-        match run_aci(arg, &mut volumes, pod_uuid.clone(), pod_dir.clone()) {
-            None => {},
-            Some(t) => { app_threads.push(t); }
+        if let Some(t) = run_aci(arg, &mut volumes, pod_uuid.clone(), pod_dir.clone()) {
+            app_threads.push(t);
         }
     }
 
@@ -189,9 +162,8 @@ fn main() {
     }
 
     for handle in handles {
-        match handle.join() {
-            Ok(_) => {},
-            Err(_) => println!("Oh no, error in a thread.")
+        if handle.join().is_err() {
+            println!("Oh no, error in a thread.")
         }
     }
 
