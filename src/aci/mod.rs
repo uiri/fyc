@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::ffi::CString;
 use std::process::Command;
 use uuid::Uuid;
+use util::NameValue;
 
 pub mod app;
 mod mountpoint;
@@ -11,12 +12,6 @@ mod mountpoint;
 use self::app::App;
 pub use self::mountpoint::MountPoint;
 pub use self::app::Isolator;
-
-#[derive(Clone, RustcDecodable, RustcEncodable)]
-pub struct NameValue {
-    name: String,
-    value: String
-}
 
 #[allow(non_snake_case)]
 #[derive(Clone, RustcDecodable, RustcEncodable)]

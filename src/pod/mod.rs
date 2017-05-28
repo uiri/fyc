@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use uuid::Uuid;
 use util::vec_or_empty;
-use aci::NameValue;
+use util::NameValue;
 
 mod app;
 use self::app::App;

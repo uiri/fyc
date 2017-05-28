@@ -12,8 +12,9 @@ use std::io::Read;
 use std::sync::RwLock;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
+use util::NameValue;
 
-use aci::{ACI, NameValue};
+use aci::ACI;
 use pod::Pod;
 
 pub const HOST_PORT: &'static str = "127.0.0.1:2377";

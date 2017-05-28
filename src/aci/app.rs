@@ -14,9 +14,9 @@ use std::process::Command;
 use std::ptr;
 use uuid::Uuid;
 use util::vec_or_empty;
+use util::NameValue;
 
 use super::MountPoint;
-use super::NameValue;
 
 const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const FYC: &'static str = "fyc";
