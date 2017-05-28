@@ -5,13 +5,14 @@ extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
-extern crate rustc_serialize;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate tar;
 extern crate uuid;
 
 use flate2::read::GzDecoder;
-
-use rustc_serialize::json;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -66,7 +67,7 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
         return None;
     }
 
-    let manifest : aci::ACI = match json::decode(&manifest_str) {
+    let manifest : aci::ACI = match serde_json::from_str(&manifest_str) {
         Err(e) => {
             println!("Error decoding manifest json: {}", e);
             return None;

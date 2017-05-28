@@ -4,7 +4,7 @@ use hyper::status::StatusCode;
 use std::collections::HashMap;
 use std::io::Read;
 
-use rustc_serialize::json;
+use serde_json;
 
 use pod::Pod;
 use util::NameValue;
@@ -13,7 +13,7 @@ use super::APP_JSON;
 use super::TEXT_PLAIN;
 use super::app::AppMetadata;
 
-#[derive(RustcEncodable)]
+#[derive(Serialize)]
 pub struct PodMetadata {
     annotations: Vec<NameValue>,
     pub apps: HashMap<String, AppMetadata>,
@@ -33,7 +33,7 @@ impl PodMetadata {
                                                        a.get_image_id()));
         }
 
-        let manifest_json = if let Ok(j) = json::encode(&pod) {
+        let manifest_json = if let Ok(j) = serde_json::to_string(&pod) {
             j
         } else {
             String::from("")
@@ -81,7 +81,7 @@ impl PodMetadata {
     pub fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        let send_json = if let Ok(j) = json::encode(&self.annotations) {
+        let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
         } else {
             String::from("null")

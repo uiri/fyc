@@ -1,6 +1,6 @@
 use std::clone::Clone;
 
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct NameValue {
     pub name: String,
     pub value: String

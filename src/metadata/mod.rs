@@ -5,7 +5,7 @@ use hyper::server::{Response, Request, Server};
 use hyper::status::StatusCode;
 use hyper::uri::RequestUri;
 
-use rustc_serialize::json;
+use serde_json;
 
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -178,7 +178,7 @@ impl Metadata {
     #[allow(dead_code)]
     pub fn get_pod(&self, uuid: String) -> String {
         if let Some(pmd) = self.pod_map.get(&uuid) {
-            if let Ok(s) = json::encode(pmd) {
+            if let Ok(s) = serde_json::to_string(pmd) {
                 return s;
             }
         }
@@ -189,7 +189,7 @@ impl Metadata {
     fn get_app(&self, uuid: String, app_name: String) -> String {
         if let Some(pmd) = self.pod_map.get(&uuid) {
             if let Some(amd) = pmd.apps.get(&app_name) {
-                if let Ok(s) = json::encode(amd) {
+                if let Ok(s) = serde_json::to_string(amd) {
                     return s;
                 }
             }

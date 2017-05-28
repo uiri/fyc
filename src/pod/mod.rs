@@ -10,7 +10,7 @@ mod app;
 use self::app::App;
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Volume {
     name: String,
     readOnly: Option<bool>,
@@ -23,7 +23,7 @@ pub struct Volume {
 }
 
 #[allow(dead_code, non_snake_case)]
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(Serialize, Deserialize)]
 pub struct Port {
     name: String,
     hostPort: usize,
@@ -32,7 +32,7 @@ pub struct Port {
 }
 
 #[allow(dead_code, non_snake_case)]
-#[derive(RustcEncodable, RustcDecodable)]
+#[derive(Serialize, Deserialize)]
 pub struct Pod {
     acVersion: String,
     acKind: String,

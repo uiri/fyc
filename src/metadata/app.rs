@@ -1,7 +1,7 @@
 use hyper::server::Response;
 use hyper::status::StatusCode;
 
-use rustc_serialize::json;
+use serde_json;
 
 use aci::ACI;
 use util::NameValue;
@@ -9,7 +9,7 @@ use util::NameValue;
 use super::APP_JSON;
 use super::TEXT_PLAIN;
 
-#[derive(RustcEncodable)]
+#[derive(Serialize)]
 pub struct AppMetadata {
     annotations: Vec<NameValue>,
     manifest: Option<ACI>,
@@ -28,7 +28,7 @@ impl AppMetadata {
     pub fn serve_annotations(&self, mut res: Response) {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
-        let send_json = if let Ok(j) = json::encode(&self.annotations) {
+        let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
         } else {
             String::from("null")
@@ -40,7 +40,7 @@ impl AppMetadata {
         *res.status_mut() = StatusCode::Ok;
         res.headers_mut().set((*APP_JSON).clone());
         if let Some(ref m) = self.manifest {
-            if let Ok(j) = json::encode(m) {
+            if let Ok(j) = serde_json::to_string(m) {
                 res.send(&j.into_bytes()[..]).unwrap();
                 return;
             }

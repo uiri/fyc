@@ -1,5 +1,5 @@
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MountPoint {
     pub name: String,
     pub path: String,

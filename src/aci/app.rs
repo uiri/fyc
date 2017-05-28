@@ -21,14 +21,14 @@ use super::MountPoint;
 const ACE_PATH: &'static str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 const FYC: &'static str = "fyc";
 
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 struct EventHandler {
     exec: Vec<String>,
     name: String
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Port {
     name: String,
     protocol: String,
@@ -37,12 +37,12 @@ pub struct Port {
     socketActivated: Option<bool>
 }
 
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Isolator {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct App {
     exec: Option<Vec<String>>,
     user: String,

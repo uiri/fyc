@@ -3,7 +3,7 @@ use util::NameValue;
 use util::vec_or_empty;
 use super::Volume;
 
-#[derive(Clone, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Serialize, Deserialize)]
 struct AppImage {
     id: String,
     name: Option<String>,
@@ -11,7 +11,7 @@ struct AppImage {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Serialize, Deserialize)]
 struct MountPoint {
     name: String,
     path: String,
@@ -19,7 +19,7 @@ struct MountPoint {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct App {
     name: String,
     image: AppImage,

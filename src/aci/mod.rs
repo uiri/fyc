@@ -14,7 +14,7 @@ pub use self::mountpoint::MountPoint;
 pub use self::app::Isolator;
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Dependency {
     imageName: String,
     imageID: Option<String>,
@@ -23,7 +23,7 @@ struct Dependency {
 }
 
 #[allow(non_snake_case)]
-#[derive(Clone, RustcDecodable, RustcEncodable)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ACI {
     acKind: String,
     acVersion: String,
