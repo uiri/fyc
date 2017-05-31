@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::env;
 use std::fs::{create_dir, File};
-use std::io::Read;
+use std::io::{Error, Read};
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::RwLock;
@@ -41,47 +41,29 @@ lazy_static! {
 const VOL_DIR : &'static str = "volumes/";
 const APP_DIR : &'static str = "apps/";
 
-fn run_aci(arg: String, volumes: &mut HashSet<String>,
-           pod_uuid: uuid::Uuid, base_dir: String) -> Option<(Sender<bool>, JoinHandle<()>)> {
-    let acipath = Path::new(&arg);
-    let mut acidirstr = base_dir.clone();
-    acidirstr.push_str(APP_DIR);
-    acidirstr.push_str(acipath.file_stem().unwrap().to_str().unwrap());
-    acidirstr.push('/');
-    let acidir = Path::new(&acidirstr);
-    let tarfile = File::open(acipath).unwrap();
-    let mut acitar = Archive::new(GzDecoder::new(tarfile).unwrap());
-    if create_dir(acidir).is_err() {
-        println!("Error creating directory for ACI");
-        return None;
-    }
+fn untar(pstr: &String, mut dirstr: String) -> Result<String, Error> {
+    let p = Path::new(pstr);
+    dirstr.push_str(p.file_stem().unwrap().to_str().unwrap());
+    dirstr.push('/');
+    let ret = Ok(dirstr.clone());
+    let dir = Path::new(&dirstr);
+    create_dir(dir)?;
+    Archive::new(GzDecoder::new(File::open(p)?)?).unpack(dir)?;
+    ret
+}
 
-    if acitar.unpack(acidir).is_err() {
-        println!("Error unpacking tarfile");
-        return None;
-    }
-
+fn run_aci(volumes: &mut HashSet<String>, pod_uuid: uuid::Uuid,
+           acidirstr: String, vol_dir: String) -> Result<(Sender<bool>, JoinHandle<()>), Error> {
     let mut manifest_str = String::new();
-    if File::open(acidir.join("manifest")).unwrap().read_to_string(&mut manifest_str).is_err() {
-        println!("Error reading manifest json");
-        return None;
-    }
+    File::open(Path::new(&acidirstr).join("manifest"))?.read_to_string(&mut manifest_str)?;
+    let mut manifest : aci::ACI = aci::ACI::new(&manifest_str)?;
 
-    let mut manifest : aci::ACI = if let Some(a) = aci::ACI::new(&manifest_str) {
-        a
-    } else {
-        return None;
-    };
-
-    let mut threadacidirstr = acidirstr.clone();
-    threadacidirstr.push_str("rootfs/");
-    let mut volstr = base_dir.clone();
-    volstr.push_str(VOL_DIR);
-    manifest.mount_volumes(&volstr, &threadacidirstr, volumes);
+    acidirstr.push_str("rootfs/");
+    manifest.mount_volumes(&vol_dir, &acidirstr, volumes);
     let (s, r) = channel();
-    Some((s, thread::spawn(move || {
+    Ok((s, thread::spawn(move || {
         r.recv().unwrap();
-        if let (Some(mut app_child), pre_start, post_stop) = manifest.exec(&threadacidirstr, pod_uuid) {
+        if let (Some(mut app_child), pre_start, post_stop) = manifest.exec(&acidirstr, pod_uuid) {
             let run_app_child = if let Some(mut pre_start_cmd) = pre_start {
                 if let Err(e) = pre_start_cmd.spawn().unwrap().wait() {
                     println!("Error in pre-start: {}", e);
@@ -127,23 +109,29 @@ fn main() {
         return;
     }
 
-    let mut pod_apps_dir = pod_dir.clone();
-    pod_apps_dir.push_str(APP_DIR);
-    if create_dir(pod_apps_dir).is_err() {
+    let mut pod_app_dir = pod_dir.clone();
+    pod_app_dir.push_str(APP_DIR);
+    if create_dir(pod_app_dir.clone()).is_err() {
         println!("Error creating apps directory for Pod");
         return;
     }
 
     let mut pod_vol_dir = pod_dir.clone();
     pod_vol_dir.push_str(VOL_DIR);
-    if create_dir(pod_vol_dir).is_err() {
+    if create_dir(pod_vol_dir.clone()).is_err() {
         println!("Error creating volumes directory for Pod");
         return;
     }
 
     for arg in args {
-        if let Some(t) = run_aci(arg, &mut volumes, pod_uuid.clone(), pod_dir.clone()) {
-            app_threads.push(t);
+        let untar_str = untar(&arg, pod_app_dir.clone()).unwrap();
+        match run_aci(&mut volumes, pod_uuid.clone(), untar_str,
+                      pod_vol_dir.clone()) {
+            Ok(t) => app_threads.push(t),
+            Err(e) => {
+                println!("Error running a container: {}", e);
+                return;
+            }
         }
     }
 

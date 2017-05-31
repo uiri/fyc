@@ -2,6 +2,7 @@ use libc;
 
 use std::collections::HashSet;
 use std::ffi::CString;
+use std::io::Error;
 use std::process::Command;
 
 use serde_json;
@@ -43,16 +44,10 @@ pub struct ACI {
 }
 
 impl ACI {
-    pub fn new(manifest_str: &str) -> Option<ACI> {
-        let json : AciJson = match serde_json::from_str(&manifest_str) {
-            Err(e) => {
-                println!("Error decoding manifest json: {}", e);
-                return None;
-            },
-            Ok(a) => a
-        };
+    pub fn new(manifest_str: &str) -> Result<ACI, Error> {
+        let json : AciJson = serde_json::from_str(&manifest_str)?;
 
-        Some(ACI {
+        Ok(ACI {
             json: json,
             mount_points: Vec::new()
         })
