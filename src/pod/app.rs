@@ -1,4 +1,4 @@
-use aci::ACI;
+use aci::AciJson;
 use util::NameValue;
 use util::vec_or_empty;
 use super::Volume;
@@ -23,14 +23,14 @@ struct MountPoint {
 pub struct App {
     name: String,
     image: AppImage,
-    app: Option<ACI>,
+    app: Option<AciJson>,
     readOnlyRootFS: Option<bool>,
     mounts: Option<Vec<MountPoint>>,
     annotations: Option<Vec<NameValue>>
 }
 
 impl App {
-    pub fn get_app(&self) -> Option<ACI> {
+    pub fn get_app(&self) -> Option<AciJson> {
         self.app.clone()
     }
 

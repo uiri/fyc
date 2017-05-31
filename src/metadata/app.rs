@@ -3,7 +3,7 @@ use hyper::status::StatusCode;
 
 use serde_json;
 
-use aci::ACI;
+use aci::AciJson;
 use util::NameValue;
 
 use super::APP_JSON;
@@ -12,12 +12,12 @@ use super::TEXT_PLAIN;
 #[derive(Serialize)]
 pub struct AppMetadata {
     annotations: Vec<NameValue>,
-    manifest: Option<ACI>,
+    manifest: Option<AciJson>,
     id: String
 }
 
 impl AppMetadata {
-    pub fn new(annotations: Vec<NameValue>, manifest: Option<ACI>, id: String) -> AppMetadata {
+    pub fn new(annotations: Vec<NameValue>, manifest: Option<AciJson>, id: String) -> AppMetadata {
         AppMetadata {
             annotations: annotations,
             manifest: manifest,

@@ -3,6 +3,8 @@ use libc;
 use std::collections::HashSet;
 use std::ffi::CString;
 use std::process::Command;
+
+use serde_json;
 use uuid::Uuid;
 use util::NameValue;
 
@@ -24,7 +26,7 @@ struct Dependency {
 
 #[allow(non_snake_case)]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ACI {
+pub struct AciJson {
     acKind: String,
     acVersion: String,
     name: String,
@@ -35,28 +37,47 @@ pub struct ACI {
     annotations: Option<Vec<NameValue>>
 }
 
-pub fn unmount_volumes(mount_points: Vec<CString>) {
-    for mount_point in mount_points {
-        unsafe {
-            let e = libc::umount(mount_point.as_ptr());
-            if e != 0 {
-                println!("Oh no, could not unmount: {:?}", *libc::__errno_location());
-            }
-        }
-    }
+pub struct ACI {
+    json: AciJson,
+    mount_points: Vec<CString>
 }
 
 impl ACI {
-    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
-        match self.app {
-            None => Vec::new(),
-            Some(ref a) => a.mount_volumes(vol_path, app_path, volumes)
+    pub fn new(manifest_str: &str) -> Option<ACI> {
+        let json : AciJson = match serde_json::from_str(&manifest_str) {
+            Err(e) => {
+                println!("Error decoding manifest json: {}", e);
+                return None;
+            },
+            Ok(a) => a
+        };
+
+        Some(ACI {
+            json: json,
+            mount_points: Vec::new()
+        })
+    }
+
+    pub fn mount_volumes(&mut self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) {
+        if let Some(ref a) = self.json.app {
+            a.mount_volumes(vol_path, app_path, volumes, &mut self.mount_points)
+        }
+    }
+
+    pub fn unmount_volumes(self) {
+        for mount_point in self.mount_points {
+            unsafe {
+                let e = libc::umount(mount_point.as_ptr());
+                if e != 0 {
+                    println!("Oh no, could not unmount: {:?}", *libc::__errno_location());
+                }
+            }
         }
     }
 
     pub fn exec(&self, dir: &str, pod_uuid: Uuid) -> (Option<Command>, Option<Command>, Option<Command>) {
-        let app_name = self.name.split('/').last().unwrap();
-        match self.app {
+        let app_name = self.json.name.split('/').last().unwrap();
+        match self.json.app {
             None => (None, None, None),
             Some(ref a) => a.exec_app(dir, app_name, pod_uuid)
         }

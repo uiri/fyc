@@ -163,9 +163,10 @@ impl App {
         vec_or_empty(self.mountPoints.as_ref())
     }
 
-    pub fn mount_volumes(&self, vol_path: &str, app_path: &str, volumes: &mut HashSet<String>) -> Vec<CString> {
-        let mut mount_points: Vec<CString> = Vec::new();
-        mount_system_volumes(app_path, &mut mount_points);
+    pub fn mount_volumes(&self, vol_path: &str, app_path: &str,
+                         volumes: &mut HashSet<String>,
+                         mount_points: &mut Vec<CString>) {
+        mount_system_volumes(app_path, mount_points);
 
         for mount_point in self.mount_points_or_empty() {
             let mut mount_src_str = String::from(vol_path);
@@ -175,7 +176,7 @@ impl App {
                 match create_dir(Path::new(&mount_src_str)) {
                     Err(_) => {
                         println!("Error creating directory for volume! Oh no!");
-                        return mount_points;
+                        return;
                     }
                     _ => {}
                 }
@@ -189,7 +190,7 @@ impl App {
             match create_dir(Path::new(&mount_dst_str)) {
                 Err(_) => {
                     println!("Error creating directory for volume! Oh no!");
-                    return mount_points;
+                    return;
                 }
                 _ => {}
             }
@@ -211,7 +212,6 @@ impl App {
             }
             mount_points.push(mount_dst);
         }
-        mount_points
     }
 
     fn find_event_handle(&self, ehs: &Vec<EventHandler>, dir: &str,

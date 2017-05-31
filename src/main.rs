@@ -67,19 +67,17 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
         return None;
     }
 
-    let manifest : aci::ACI = match serde_json::from_str(&manifest_str) {
-        Err(e) => {
-            println!("Error decoding manifest json: {}", e);
-            return None;
-        },
-        Ok(a) => a
+    let mut manifest : aci::ACI = if let Some(a) = aci::ACI::new(&manifest_str) {
+        a
+    } else {
+        return None;
     };
 
     let mut threadacidirstr = acidirstr.clone();
     threadacidirstr.push_str("rootfs/");
     let mut volstr = base_dir.clone();
     volstr.push_str(VOL_DIR);
-    let mount_points = manifest.mount_volumes(&volstr, &threadacidirstr, volumes);
+    manifest.mount_volumes(&volstr, &threadacidirstr, volumes);
     let (s, r) = channel();
     Some((s, thread::spawn(move || {
         r.recv().unwrap();
@@ -101,7 +99,7 @@ fn run_aci(arg: String, volumes: &mut HashSet<String>,
                 post_stop_cmd.spawn().unwrap().wait().unwrap();
             }
         }
-        aci::unmount_volumes(mount_points);
+        manifest.unmount_volumes();
     })))
 }
 
