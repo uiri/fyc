@@ -1,13 +1,13 @@
-use hyper::server::{Response, Request};
-use hyper::status::StatusCode;
+use hyper::{Response, Request};
+use hyper::StatusCode;
 
 use std::collections::HashMap;
 use std::io::Read;
 
 use serde_json;
 
-use pod::Pod;
-use util::NameValue;
+use crate::pod::Pod;
+use crate::util::NameValue;
 
 use super::APP_JSON;
 use super::TEXT_PLAIN;
@@ -57,11 +57,11 @@ impl PodMetadata {
     pub fn sign(&self, mut req: Request, mut res: Response) {
         let ref mut req_body = Vec::new();
         if req.read_to_end(req_body).is_err() {
-            *res.status_mut() = StatusCode::InternalServerError;
+            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
             return;
         }
 
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
     }
@@ -69,17 +69,17 @@ impl PodMetadata {
     pub fn verify(&self, mut req: Request, mut res: Response) {
         let ref mut req_body = Vec::new();
         if req.read_to_end(req_body).is_err() {
-            *res.status_mut() = StatusCode::InternalServerError;
+            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
             return;
         }
 
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&req_body[..]).unwrap();
     }
 
     pub fn serve_annotations(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*APP_JSON).clone());
         let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
@@ -90,13 +90,13 @@ impl PodMetadata {
     }
 
     pub fn serve_manifest(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*APP_JSON).clone());
         res.send(&(self.manifest.clone().into_bytes())[..]).unwrap();
     }
 
     pub fn serve_uuid(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&(self.uuid.clone().into_bytes())[..]).unwrap();
     }

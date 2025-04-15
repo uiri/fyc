@@ -1,7 +1,7 @@
 use libc::{chroot, mount, MS_BIND, MS_RDONLY, MS_NODEV, MS_NOEXEC, MS_NOSUID};
 use libc;
 
-use metadata;
+use crate::metadata;
 
 use std::collections::HashSet;
 use std::env::set_current_dir;
@@ -13,8 +13,8 @@ use std::path::Path;
 use std::process::Command;
 use std::ptr;
 use uuid::Uuid;
-use util::vec_or_empty;
-use util::NameValue;
+use crate::util::vec_or_empty;
+use crate::util::NameValue;
 
 use super::MountPoint;
 

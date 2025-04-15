@@ -1,10 +1,10 @@
-use hyper::server::Response;
-use hyper::status::StatusCode;
+use hyper::Response;
+use hyper::StatusCode;
 
 use serde_json;
 
-use aci::AciJson;
-use util::NameValue;
+use crate::aci::AciJson;
+use crate::util::NameValue;
 
 use super::APP_JSON;
 use super::TEXT_PLAIN;
@@ -26,7 +26,7 @@ impl AppMetadata {
     }
     
     pub fn serve_annotations(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*APP_JSON).clone());
         let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
@@ -37,7 +37,7 @@ impl AppMetadata {
     }
 
     pub fn serve_manifest(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*APP_JSON).clone());
         if let Some(ref m) = self.manifest {
             if let Ok(j) = serde_json::to_string(m) {
@@ -49,7 +49,7 @@ impl AppMetadata {
     }
 
     pub fn serve_id(&self, mut res: Response) {
-        *res.status_mut() = StatusCode::Ok;
+        *res.status_mut() = StatusCode::OK;
         res.headers_mut().set((*TEXT_PLAIN).clone());
         res.send(&(self.id.clone().into_bytes())[..]).unwrap();
     }

@@ -1,8 +1,9 @@
 use hyper::header::ContentType;
 use hyper::method::Method;
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
-use hyper::server::{Response, Request, Server};
-use hyper::status::StatusCode;
+use hyper::{Response, Request};
+use hyper::server::Server;
+use hyper::StatusCode;
 use hyper::uri::RequestUri;
 
 use serde_json;
@@ -12,7 +13,7 @@ use std::sync::RwLock;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
 
-use pod::Pod;
+use crate::pod::Pod;
 
 mod app;
 mod pod;
@@ -57,7 +58,7 @@ impl Metadata {
             RequestUri::AbsolutePath(ref p) => p.clone(),
             RequestUri::AbsoluteUri(ref u) => String::from(u.path()),
             _ => {
-                *res.status_mut() = StatusCode::BadRequest;
+                *res.status_mut() = StatusCode::BAD_REQUEST;
                 return;
             }
         };
@@ -65,43 +66,42 @@ impl Metadata {
         let mut req_path_segs = if path_str.starts_with('/') {
             path_str[1..].split('/')
         } else {
-            *res.status_mut() = StatusCode::BadRequest;
+            *res.status_mut() = StatusCode::BAD_REQUEST;
             return;
         };
 
         let pmd = if let Some(p) = self.get_by_token(req_path_segs.next()) {
             p
         } else {
-            *res.status_mut() = StatusCode::NotFound;
+            *res.status_mut() = StatusCode::NOT_FOUND;
             return;
         };
 
         if req_path_segs.next() != Some("acMetadata") {
-            *res.status_mut() = StatusCode::NotFound;
+            *res.status_mut() = StatusCode::NOT_FOUND;
             return;
         }
 
         if req_path_segs.next() != Some("v1") {
-            *res.status_mut() = StatusCode::NotFound;
+            *res.status_mut() = StatusCode::NOT_FOUND;
             return;
         }
 
         match req.method {
             Method::Post => {
                 if req_path_segs.next() != Some("pod") {
-                    *res.status_mut() = StatusCode::NotFound;
+                    *res.status_mut() = StatusCode::NOT_FOUND;
                     return;
                 }
                 if req_path_segs.next() != Some("hmac") {
-                    *res.status_mut() = StatusCode::NotFound;
+                    *res.status_mut() = StatusCode::NOT_FOUND;
                     return;
                 }
                 match req_path_segs.next() {
                     Some("sign") => pmd.sign(req, res),
                     Some("verify") => pmd.verify(req, res),
                     _ => {
-                        *res.status_mut() = StatusCode::NotFound;
-                        return;
+                        *res.status_mut() = StatusCode::NOT_FOUND;
                     }
                 }
             },
@@ -116,7 +116,7 @@ impl Metadata {
                             Some("uuid") =>
                                 pmd.serve_uuid(res),
                             _ => {
-                                *res.status_mut() = StatusCode::NotFound;
+                                *res.status_mut() = StatusCode::NOT_FOUND;
                                 return;
                             }
                         }
@@ -125,7 +125,7 @@ impl Metadata {
                         let appmd = if let Some(a) = pmd.get_app(req_path_segs.next()) {
                             a
                         } else {
-                            *res.status_mut() = StatusCode::NotFound;
+                            *res.status_mut() = StatusCode::NOT_FOUND;
                             return;
                         };
 
@@ -140,24 +140,24 @@ impl Metadata {
                                         appmd.serve_id(res),
                                     _ => {
                                         *res.status_mut() =
-                                            StatusCode::NotFound;
+                                            StatusCode::NOT_FOUND;
                                         return;
                                     }
                                 }
                             }
                             _ => {
-                                *res.status_mut() = StatusCode::NotFound;
+                                *res.status_mut() = StatusCode::NOT_FOUND;
                                 return;
                             }
                         }
                     }
                     _ => {
-                        *res.status_mut() = StatusCode::NotFound;
+                        *res.status_mut() = StatusCode::NOT_FOUND;
                         return;
                     }
                 }
             },
-            _ => *res.status_mut() = StatusCode::MethodNotAllowed
+            _ => *res.status_mut() = StatusCode::METHOD_NOT_ALLOWED
         }
     }
 

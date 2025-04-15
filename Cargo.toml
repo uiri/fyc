@@ -1,5 +1,5 @@
 [package]
-
+edition = "2021"
 name = "fyc"
 version = "0.0.1"
 authors = []
@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 flate2 = "*"
-hyper = "*"
+hyper = { version = "*", features = [ "server" ] }
 lazy_static = "*"
 libc = "*"
 serde = "*"
