@@ -22,6 +22,7 @@ use std::io::{Error, Read};
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::RwLock;
+use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -48,41 +49,50 @@ fn untar(pstr: &String, mut dirstr: String) -> Result<String, Error> {
     let ret = Ok(dirstr.clone());
     let dir = Path::new(&dirstr);
     create_dir(dir)?;
-    Archive::new(GzDecoder::new(File::open(p)?)?).unpack(dir)?;
+    let file_result = File::open(p);
+    if let Ok(opened_file) = file_result {
+        let decoder = GzDecoder::new(opened_file);
+        Archive::new(decoder).unpack(dir)?;
+    } else if let Err(e) = file_result {
+        return Err(e);
+    }
     ret
 }
 
 fn run_aci(volumes: &mut HashSet<String>, pod_uuid: uuid::Uuid,
-           acidirstr: String, vol_dir: String) -> Result<(Sender<bool>, JoinHandle<()>), Error> {
+           mut acidirstr: String, vol_dir: String) -> Result<(Sender<bool>, JoinHandle<()>), Error> {
     let mut manifest_str = String::new();
     File::open(Path::new(&acidirstr).join("manifest"))?.read_to_string(&mut manifest_str)?;
     let mut manifest : aci::ACI = aci::ACI::new(&manifest_str)?;
 
     acidirstr.push_str("rootfs/");
-    manifest.mount_volumes(&vol_dir, &acidirstr, volumes);
+    let shared_acidir = Arc::new(acidirstr);
+    manifest.mount_volumes(&vol_dir, &shared_acidir, volumes);
     let (s, r) = channel();
-    Ok((s, thread::spawn(move || {
-        r.recv().unwrap();
-        if let (Some(mut app_child), pre_start, post_stop) = manifest.exec(&acidirstr, pod_uuid) {
-            let run_app_child = if let Some(mut pre_start_cmd) = pre_start {
-                if let Err(e) = pre_start_cmd.spawn().unwrap().wait() {
-                    println!("Error in pre-start: {}", e);
-                    false
+    Ok((s, thread::spawn({
+        let shared_acidir_clone = Arc::clone(&shared_acidir); 
+        move || {
+            r.recv().unwrap();
+            if let (Some(mut app_child), pre_start, post_stop) = manifest.exec(&shared_acidir_clone, pod_uuid) {
+                let run_app_child = if let Some(mut pre_start_cmd) = pre_start {
+                    if let Err(e) = pre_start_cmd.spawn().unwrap().wait() {
+                        println!("Error in pre-start: {}", e);
+                        false
+                    } else {
+                        true
+                    }
                 } else {
                     true
+                };
+                if run_app_child {
+                    app_child.spawn().unwrap().wait().unwrap();
                 }
-            } else {
-                true
-            };
-            if run_app_child {
-                app_child.spawn().unwrap().wait().unwrap();
+                if let Some(mut post_stop_cmd) = post_stop {
+                    post_stop_cmd.spawn().unwrap().wait().unwrap();
+                }
             }
-            if let Some(mut post_stop_cmd) = post_stop {
-                post_stop_cmd.spawn().unwrap().wait().unwrap();
-            }
-        }
-        manifest.unmount_volumes();
-    })))
+            manifest.unmount_volumes();
+    }})))
 }
 
 fn main() {
