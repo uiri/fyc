@@ -1,16 +1,15 @@
 use hyper::{Response, Request};
 use hyper::StatusCode;
+use hyper::header::CONTENT_TYPE;
+use hyper::header::HeaderValue;
 
 use std::collections::HashMap;
-use std::io::Read;
 
 use serde_json;
 
 use crate::pod::Pod;
 use crate::util::NameValue;
 
-use super::APP_JSON;
-use super::TEXT_PLAIN;
 use super::app::AppMetadata;
 
 #[derive(Serialize)]
@@ -54,51 +53,50 @@ impl PodMetadata {
         None
     }
 
-    pub fn sign(&self, mut req: Request, mut res: Response) {
-        let ref mut req_body = Vec::new();
-        if req.read_to_end(req_body).is_err() {
-            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-            return;
-        }
-
+    pub fn sign(&self, mut req: Request<String>, mut res: Response<String>) {
+        let ref mut req_body = req.body_mut();
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*TEXT_PLAIN).clone());
-        res.send(&req_body[..]).unwrap();
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut req_body[..].to_string();
     }
 
-    pub fn verify(&self, mut req: Request, mut res: Response) {
-        let ref mut req_body = Vec::new();
-        if req.read_to_end(req_body).is_err() {
-            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-            return;
-        }
-
+    pub fn verify(&self, mut req: Request<String>, mut res: Response<String>) {
+        let ref mut req_body = req.body_mut();
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*TEXT_PLAIN).clone());
-        res.send(&req_body[..]).unwrap();
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut req_body[..].to_string();
     }
 
-    pub fn serve_annotations(&self, mut res: Response) {
+    pub fn serve_annotations(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*APP_JSON).clone());
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
         } else {
             String::from("null")
         };
-        res.send(&send_json.into_bytes()[..]).unwrap();
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut send_json.clone();
     }
 
-    pub fn serve_manifest(&self, mut res: Response) {
+    pub fn serve_manifest(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*APP_JSON).clone());
-        res.send(&(self.manifest.clone().into_bytes())[..]).unwrap();
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut self.manifest.clone();
     }
 
-    pub fn serve_uuid(&self, mut res: Response) {
+    pub fn serve_uuid(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*TEXT_PLAIN).clone());
-        res.send(&(self.uuid.clone().into_bytes())[..]).unwrap();
+        res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut self.uuid.clone();
     }
 
 }

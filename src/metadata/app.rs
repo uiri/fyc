@@ -1,13 +1,14 @@
 use hyper::Response;
 use hyper::StatusCode;
+use hyper::header::CONTENT_TYPE;
+use hyper::header::HeaderValue;
+
+use std::str::FromStr;
 
 use serde_json;
 
 use crate::aci::AciJson;
 use crate::util::NameValue;
-
-use super::APP_JSON;
-use super::TEXT_PLAIN;
 
 #[derive(Serialize)]
 pub struct AppMetadata {
@@ -25,32 +26,39 @@ impl AppMetadata {
         }
     }
     
-    pub fn serve_annotations(&self, mut res: Response) {
+    pub fn serve_annotations(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*APP_JSON).clone());
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let send_json = if let Ok(j) = serde_json::to_string(&self.annotations) {
             j
         } else {
             String::from("null")
         };
-        res.send(&send_json.into_bytes()[..]).unwrap();
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut send_json.clone();
     }
 
-    pub fn serve_manifest(&self, mut res: Response) {
+    pub fn serve_manifest(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*APP_JSON).clone());
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         if let Some(ref m) = self.manifest {
             if let Ok(j) = serde_json::to_string(m) {
-                res.send(&j.into_bytes()[..]).unwrap();
+                let ref mut res_body = res.body_mut();
+                *res_body = &mut j.clone();
                 return;
             }
         };
-        res.send(b"null").unwrap();
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut String::from_str("null").unwrap();
     }
 
-    pub fn serve_id(&self, mut res: Response) {
+    pub fn serve_id(&self, mut res: Response<String>) {
         *res.status_mut() = StatusCode::OK;
-        res.headers_mut().set((*TEXT_PLAIN).clone());
-        res.send(&(self.id.clone().into_bytes())[..]).unwrap();
+        let ref mut res_headers = res.headers_mut();
+        res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
+        let ref mut res_body = res.body_mut();
+        *res_body = &mut self.id.clone();
     }
 }

@@ -1,10 +1,7 @@
-use hyper::header::ContentType;
-use hyper::method::Method;
-use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use hyper::{Response, Request};
-use hyper::server::Server;
 use hyper::StatusCode;
-use hyper::uri::RequestUri;
+use hyper::Method;
+use hyper::Uri;
 
 use serde_json;
 
@@ -21,13 +18,6 @@ mod pod;
 use self::pod::PodMetadata;
 
 pub const HOST_PORT: &'static str = "127.0.0.1:2377";
-lazy_static! {
-    static ref APP_JSON: ContentType = ContentType(Mime(
-        TopLevel::Application, SubLevel::Json, vec![]));
-    static ref TEXT_PLAIN: ContentType = ContentType(Mime(
-        TopLevel::Text, SubLevel::Plain, vec![(
-            Attr::Charset, Value::Ext(String::from("us-ascii")))]));
-}
 
 pub struct Metadata {
     pod_map: HashMap<String, PodMetadata>
@@ -37,7 +27,7 @@ pub fn start(md: &'static RwLock<Metadata>) -> Sender<bool> {
     let (s, r) = channel();
     thread::spawn(move || {
         let server = Server::http(HOST_PORT).unwrap();
-        let mut listener = server.handle(move |req: Request, res: Response| {
+        let mut listener = server.handle(move |req: Request<String>, res: Response<String>| {
             md.read().unwrap().handle(req, res);
         }).unwrap();
         r.recv().unwrap();
@@ -53,10 +43,10 @@ impl Metadata {
         }
     }
 
-    fn handle(&self, req: Request, mut res: Response) {
-        let path_str = match req.uri {
-            RequestUri::AbsolutePath(ref p) => p.clone(),
-            RequestUri::AbsoluteUri(ref u) => String::from(u.path()),
+    fn handle(&self, req: Request<String>, mut res: Response<String>) {
+        let path_str = match req.uri() {
+            Uri::AbsolutePath(ref p) => p.clone(),
+            Uri::AbsoluteUri(ref u) => String::from(u.path()),
             _ => {
                 *res.status_mut() = StatusCode::BAD_REQUEST;
                 return;
@@ -87,8 +77,8 @@ impl Metadata {
             return;
         }
 
-        match req.method {
-            Method::Post => {
+        match *req.method() {
+            Method::POST => {
                 if req_path_segs.next() != Some("pod") {
                     *res.status_mut() = StatusCode::NOT_FOUND;
                     return;
@@ -105,7 +95,7 @@ impl Metadata {
                     }
                 }
             },
-            Method::Get => {
+            Method::GET => {
                 match req_path_segs.next() {
                     Some("pod") => {
                         match req_path_segs.next() {
