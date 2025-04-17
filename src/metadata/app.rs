@@ -26,7 +26,7 @@ impl AppMetadata {
         }
     }
     
-    pub fn serve_annotations(&self, mut res: Response<String>) {
+    pub fn serve_annotations(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -37,9 +37,10 @@ impl AppMetadata {
         };
         let ref mut res_body = res.body_mut();
         *res_body = &mut send_json.clone();
+        res
     }
 
-    pub fn serve_manifest(&self, mut res: Response<String>) {
+    pub fn serve_manifest(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -47,18 +48,20 @@ impl AppMetadata {
             if let Ok(j) = serde_json::to_string(m) {
                 let ref mut res_body = res.body_mut();
                 *res_body = &mut j.clone();
-                return;
+                return res;
             }
         };
         let ref mut res_body = res.body_mut();
         *res_body = &mut String::from_str("null").unwrap();
+        res
     }
 
-    pub fn serve_id(&self, mut res: Response<String>) {
+    pub fn serve_id(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
         let ref mut res_body = res.body_mut();
         *res_body = &mut self.id.clone();
+        res
     }
 }

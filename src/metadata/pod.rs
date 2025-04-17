@@ -2,7 +2,13 @@ use hyper::{Response, Request};
 use hyper::StatusCode;
 use hyper::header::CONTENT_TYPE;
 use hyper::header::HeaderValue;
+use hyper::body::{Incoming, Bytes};
 
+use http_body_util::BodyExt;
+use futures_util::StreamExt;
+use futures_util::FutureExt;
+
+use std::convert::Infallible;
 use std::collections::HashMap;
 
 use serde_json;
@@ -53,25 +59,38 @@ impl PodMetadata {
         None
     }
 
-    pub fn sign(&self, mut req: Request<String>, mut res: Response<String>) {
-        let ref mut req_body = req.body_mut();
+    pub async fn sign(&self, mut req: Request<Incoming>, mut res: Response<String>) -> Response<String> {
+        let req_body: &mut Incoming = req.body_mut();
+        let mut req_stream = req_body.frame().map(|f| Ok::<Bytes, Infallible>(f.unwrap().unwrap().into_data().unwrap())).into_stream();
+        let mut req_bodystr = String::new();
+        while let Some(req_data) = req_stream.next().await {
+            req_bodystr.push_str(&String::from_utf8(req_data.unwrap().to_vec()).unwrap());
+        }
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
         let ref mut res_body = res.body_mut();
-        *res_body = &mut req_body[..].to_string();
+        *res_body = &mut req_bodystr;
+        res
     }
 
-    pub fn verify(&self, mut req: Request<String>, mut res: Response<String>) {
-        let ref mut req_body = req.body_mut();
+    pub async fn verify(&self, mut req: Request<Incoming>, mut res: Response<String>) -> Response<String> {
+        let req_body: &mut Incoming = req.body_mut();
+        let mut req_stream = req_body.frame().map(|f| Ok::<Bytes, Infallible>(f.unwrap().unwrap().into_data().unwrap())).into_stream();
+        let mut req_bodystr = String::new();
+        while let Some(req_data) = req_stream.next().await {
+            req_bodystr.push_str(&String::from_utf8(req_data.unwrap().to_vec()).unwrap());
+        }
+
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
         let ref mut res_body = res.body_mut();
-        *res_body = &mut req_body[..].to_string();
+        *res_body = &mut req_bodystr;
+        res
     }
 
-    pub fn serve_annotations(&self, mut res: Response<String>) {
+    pub fn serve_annotations(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -82,21 +101,24 @@ impl PodMetadata {
         };
         let ref mut res_body = res.body_mut();
         *res_body = &mut send_json.clone();
+        res
     }
 
-    pub fn serve_manifest(&self, mut res: Response<String>) {
+    pub fn serve_manifest(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         let ref mut res_headers = res.headers_mut();
         res_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         let ref mut res_body = res.body_mut();
         *res_body = &mut self.manifest.clone();
+        res
     }
 
-    pub fn serve_uuid(&self, mut res: Response<String>) {
+    pub fn serve_uuid(&self, mut res: Response<String>) -> Response<String> {
         *res.status_mut() = StatusCode::OK;
         res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=us-ascii"));
         let ref mut res_body = res.body_mut();
         *res_body = &mut self.uuid.clone();
+        res
     }
 
 }

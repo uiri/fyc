@@ -11,11 +11,15 @@ path = "src/main.rs"
 
 [dependencies]
 flate2 = "*"
-hyper = { version = "*", features = [ "server" ] }
+hyper = { version = "*", features = [ "server", "http1", "http2" ] }
+hyper-util = { version = "*", features = [ "server", "http1", "http2", "tokio" ] }
+http-body-util = "*"
+futures-util = "*"
 lazy_static = "*"
 libc = "*"
 serde = "*"
 serde_derive = "*"
 serde_json = "*"
 tar = "*"
+tokio = "*"
 uuid = { version = "*", features = ["rustc-serialize", "v4"] }

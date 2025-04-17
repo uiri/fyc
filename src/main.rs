@@ -26,6 +26,8 @@ use std::sync::Arc;
 use std::thread;
 use std::thread::JoinHandle;
 
+use tokio::runtime::Handle;
+
 use tar::Archive;
 
 mod aci;
@@ -164,5 +166,7 @@ fn main() {
         }
     }
 
-    close_service.send(true).unwrap();
+    Handle::current().block_on(async move {
+        close_service.await.send(true).unwrap();
+    });
 }
