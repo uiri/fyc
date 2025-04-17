@@ -123,39 +123,40 @@ impl App {
             Some(ref wdir) => Some(wdir.clone())
         };
 
-        cmd.before_exec(move || {
-            match set_current_dir(&closed_dir) {
-                Err(e) => {
-                    println!("chdir failed: {}", e);
-                    return Err(e);
+        unsafe {
+            cmd.pre_exec(move || {
+                match set_current_dir(&closed_dir) {
+                    Err(e) => {
+                        println!("chdir failed: {}", e);
+                        return Err(e);
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
 
-            let c_dir = CString::new(closed_dir.clone()).unwrap();
-            unsafe {
+                let c_dir = CString::new(closed_dir.clone()).unwrap();
+
                 let e = chroot(c_dir.as_ptr());
                 if e != 0 {
                     println!("Chroot unsuccessful!");
                     return Err(io::Error::last_os_error());
                 }
-            }
 
-            match work_dir {
-                None => {},
-                Some(ref wdir) => {
-                    match set_current_dir(wdir) {
-                        Err(e) => {
-                            println!("chdir failed: {}", e);
-                            return Err(e);
+                match work_dir {
+                    None => {},
+                    Some(ref wdir) => {
+                        match set_current_dir(wdir) {
+                            Err(e) => {
+                                println!("chdir failed: {}", e);
+                                return Err(e);
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
-            }
 
-            Ok(())
-        });
+                Ok(())
+            });
+        }
         cmd
     }
 
